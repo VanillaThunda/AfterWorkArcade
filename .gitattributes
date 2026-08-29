@@ -1,0 +1,5 @@
+# Zeilenenden im Repo und im Arbeitsordner immer LF (auch für Hooks und die Synology)
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

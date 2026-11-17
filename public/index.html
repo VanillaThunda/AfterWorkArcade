@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AfterWork Arcade</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- type="module": native ES-Module, kein Build-Schritt nötig -->
+    <script type="module" src="/js/main.js"></script>
+</head>
+<body>
+
+<!-- ===================================================================== -->
+<!-- Kopfzeile                                                             -->
+<!-- ===================================================================== -->
+<header class="topbar">
+    <h1 class="topbar-title">🎮 AfterWork Arcade <span id="app-version" class="topbar-version"></span></h1>
+    <div id="session-info" class="topbar-session" hidden>
+        <span id="connection-status" class="connection-status" title="Verbindungsstatus"></span>
+        <span>Angemeldet als <strong id="current-user-name"></strong></span>
+        <button id="logout-button" class="button-secondary">Abmelden</button>
+    </div>
+</header>
+
+<div class="layout">
+    <main class="content">
+
+        <!-- ================================================================= -->
+        <!-- Ansicht 1: Anmeldung                                              -->
+        <!-- ================================================================= -->
+        <section id="view-login" class="view">
+            <div class="card login-card">
+                <h2>Willkommen!</h2>
+                <p class="muted">Wähle einen Usernamen, um loszulegen.</p>
+                <form id="login-form" class="form" autocomplete="off">
+                    <label for="login-name">Username</label>
+                    <input id="login-name" name="name" maxlength="20" required>
+                    <button type="submit">Los geht's</button>
+                    <p id="login-error" class="form-error" role="alert"></p>
+                </form>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- Ansicht 2: Lobby-Übersicht                                        -->
+        <!-- ================================================================= -->
+        <section id="view-overview" class="view" hidden>
+            <div class="card">
+                <h2>Offene Lobbys</h2>
+                <ul id="lobby-list" class="lobby-list"></ul>
+                <p id="lobby-list-empty" class="muted">Aktuell gibt es keine offenen Lobbys – erstelle doch eine!</p>
+            </div>
+
+            <div class="overview-grid">
+                <div class="card">
+                    <h2>Lobby erstellen</h2>
+                    <form id="create-lobby-form" class="form" autocomplete="off">
+                        <label for="create-lobby-name">Name</label>
+                        <input id="create-lobby-name" name="name" maxlength="30" placeholder="z. B. Freitagsrunde">
+
+                        <label for="create-lobby-visibility">Sichtbarkeit</label>
+                        <select id="create-lobby-visibility" name="visibility">
+                            <option value="public">Offen – in der Liste sichtbar</option>
+                            <option value="private">Privat – nur per Code oder Link</option>
+                        </select>
+
+                        <label for="create-lobby-password">Passwort (optional)</label>
+                        <input id="create-lobby-password" name="password" type="password" maxlength="50" autocomplete="new-password">
+
+                        <button type="submit">Lobby erstellen</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h2>Mit Code beitreten</h2>
+                    <p class="muted">Für private Lobbys: Code vom Host erfragen.</p>
+                    <form id="join-code-form" class="form-inline" autocomplete="off">
+                        <input id="join-code-input" name="code" maxlength="6" placeholder="CODE" required class="code-input">
+                        <button type="submit">Beitreten</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================= -->
+        <!-- Ansicht 3: In einer Lobby                                         -->
+        <!-- ================================================================= -->
+        <section id="view-lobby" class="view" hidden>
+            <div class="card lobby-header">
+                <div>
+                    <h2 id="lobby-name"></h2>
+                    <p class="muted">
+                        Code: <strong id="lobby-code" class="code"></strong>
+                        · <span id="lobby-visibility"></span>
+                        <span id="lobby-password-badge" hidden>· 🔒 Passwort</span>
+                    </p>
+                </div>
+                <button id="leave-lobby-button" class="button-danger">Lobby verlassen</button>
+            </div>
+
+            <!-- Spielbereich -->
+            <div class="card game-card">
+                <div class="game-toolbar">
+                    <h2 id="game-title">Kein Spiel ausgewählt</h2>
+                    <div id="host-game-controls" class="form-inline" hidden>
+                        <select id="game-select" aria-label="Spiel auswählen"></select>
+                        <button id="start-game-button">Spiel starten</button>
+                    </div>
+                    <button id="end-game-button" class="button-danger" hidden>Spiel beenden</button>
+                </div>
+                <p id="game-placeholder" class="muted"></p>
+                <div id="game-container" class="game-container"></div>
+            </div>
+
+            <div class="lobby-grid">
+                <div class="card">
+                    <h3>Mitglieder</h3>
+                    <ul id="member-list" class="member-list"></ul>
+
+                    <h3>Einladen</h3>
+                    <div class="form-inline">
+                        <input id="invite-link" readonly aria-label="Einladungslink">
+                        <button id="copy-invite-button" class="button-secondary">Kopieren</button>
+                    </div>
+                </div>
+
+                <div class="card chat-card">
+                    <h3>Lobby-Chat</h3>
+                    <div id="lobby-chat-messages" class="chat-messages" aria-live="polite"></div>
+                    <form id="lobby-chat-form" class="form-inline" autocomplete="off">
+                        <input id="lobby-chat-input" maxlength="300" placeholder="Nachricht an die Lobby …">
+                        <button type="submit">Senden</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ===================================================================== -->
+    <!-- Seitenleiste: Online-User und globaler Chat (nach dem Login sichtbar) -->
+    <!-- ===================================================================== -->
+    <aside id="sidebar" class="sidebar" hidden>
+        <div class="card">
+            <h3>Online (<span id="online-count">0</span>)</h3>
+            <ul id="online-list" class="online-list"></ul>
+        </div>
+
+        <div class="card chat-card">
+            <h3>Globaler Chat</h3>
+            <div id="global-chat-messages" class="chat-messages" aria-live="polite"></div>
+            <form id="global-chat-form" class="form-inline" autocomplete="off">
+                <input id="global-chat-input" maxlength="300" placeholder="Nachricht an alle …">
+                <button type="submit">Senden</button>
+            </form>
+        </div>
+    </aside>
+</div>
+
+<!-- Passwort-Abfrage beim Beitritt zu geschützten Lobbys -->
+<dialog id="password-dialog">
+    <form method="dialog" class="form">
+        <h3>Passwort erforderlich</h3>
+        <p class="muted">Diese Lobby ist passwortgeschützt.</p>
+        <input id="password-dialog-input" type="password" maxlength="50" aria-label="Passwort" autocomplete="off">
+        <div class="dialog-buttons">
+            <!-- Erster Button = Standard bei Enter -->
+            <button value="ok">Beitreten</button>
+            <button value="cancel" class="button-secondary" formnovalidate>Abbrechen</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Container für kurze Hinweise (Toasts) -->
+<div id="toast-container" class="toast-container" aria-live="assertive"></div>
+
+</body>
+</html>

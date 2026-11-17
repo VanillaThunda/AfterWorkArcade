@@ -1,0 +1,385 @@
+/**
+ * UI-Test im echten Browser (headless Edge oder Chrome).
+ *
+ * Simuliert zwei Spieler in getrennten Browser-Kontexten (eigener
+ * localStorage) und klickt sich durch Login, Chat, Lobbys und den
+ * Risiko-Würfel. Gesteuert wird der Browser über das Chrome DevTools
+ * Protocol (CDP) – ohne npm-Pakete.
+ *
+ * Voraussetzung: Microsoft Edge, Google Chrome oder Chromium ist installiert.
+ * Eigener Pfad per Umgebungsvariable:  BROWSER_PATH=/pfad/zum/browser
+ *
+ * Start:     npm run test:ui   bzw.  node tests/ui.test.mjs
+ * Ergebnis:  Screenshots unter tests/output/
+ */
+
+import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { startServer, createTestRunner, sleep } from "./helpers.mjs";
+
+const SERVER_PORT = 3459;
+const DEBUG_PORT = 9333;
+const OUTPUT_DIR = fileURLToPath(new URL("./output/", import.meta.url));
+
+// ===========================================================================
+// Browser finden und starten
+// ===========================================================================
+
+const BROWSER_CANDIDATES = [
+    process.env.BROWSER_PATH,
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    path.join(process.env.LOCALAPPDATA ?? "", "Google\\Chrome\\Application\\chrome.exe"),
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/google-chrome",
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+];
+
+const browserPath = BROWSER_CANDIDATES.find(candidate => candidate && fs.existsSync(candidate));
+if (!browserPath) {
+    console.error("Kein Browser gefunden. Bitte Edge/Chrome installieren oder BROWSER_PATH setzen.");
+    process.exit(1);
+}
+
+/** Startet den Browser headless und liefert die WebSocket-Adresse für CDP. */
+async function launchBrowser() {
+    const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "awa-ui-test-"));
+    const browser = spawn(browserPath, [
+        "--headless=new",
+        `--remote-debugging-port=${DEBUG_PORT}`,
+        `--user-data-dir=${profileDir}`,
+        "--no-first-run",
+        "--no-default-browser-check",
+        "about:blank"
+    ]);
+
+    // Der erste Start mit frischem Profil kann einige Sekunden dauern.
+    for (let attempt = 0; attempt < 150; attempt++) {
+        try {
+            const info = await (await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/version`)).json();
+            return { browser, profileDir, wsUrl: info.webSocketDebuggerUrl };
+        } catch {
+            await sleep(200);
+        }
+    }
+    browser.kill();
+    throw new Error("Browser hat den Debug-Port nicht geöffnet.");
+}
+
+// ===========================================================================
+// Minimaler CDP-Client
+// ===========================================================================
+
+function createCdpClient(wsUrl) {
+    const socket = new WebSocket(wsUrl);
+    const pending = new Map();
+    const listeners = [];
+    let nextId = 1;
+
+    socket.addEventListener("message", event => {
+        const message = JSON.parse(event.data);
+        if (message.id && pending.has(message.id)) {
+            const { resolve, reject } = pending.get(message.id);
+            pending.delete(message.id);
+            if (message.error) reject(new Error(message.error.message));
+            else resolve(message.result);
+        } else {
+            for (const listener of listeners) listener(message);
+        }
+    });
+
+    return {
+        ready: new Promise(resolve => socket.addEventListener("open", resolve)),
+        send(method, params = {}, sessionId) {
+            return new Promise((resolve, reject) => {
+                const id = nextId++;
+                pending.set(id, { resolve, reject });
+                socket.send(JSON.stringify({ id, method, params, sessionId }));
+            });
+        },
+        onEvent: listener => listeners.push(listener),
+        close: () => socket.close()
+    };
+}
+
+/** Erwartete Konsolenmeldungen (absichtlich provozierte 4xx-Antworten). */
+const EXPECTED_CONSOLE = /status of 4\d\d/;
+const consoleProblems = [];
+
+/** Öffnet eine Seite in einem eigenen Browser-Kontext (= eigener Spieler). */
+async function openPage(cdp, label) {
+    const { browserContextId } = await cdp.send("Target.createBrowserContext");
+    const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank", browserContextId });
+    const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
+
+    for (const domain of ["Runtime", "Page", "Log"]) await cdp.send(`${domain}.enable`, {}, sessionId);
+
+    cdp.onEvent(message => {
+        if (message.sessionId !== sessionId) return;
+        const { method, params } = message;
+
+        if (method === "Runtime.exceptionThrown") {
+            consoleProblems.push(`[${label}] Exception: ${params.exceptionDetails.exception?.description ?? params.exceptionDetails.text}`);
+        } else if (method === "Runtime.consoleAPICalled" && ["error", "warning"].includes(params.type)) {
+            consoleProblems.push(`[${label}] console.${params.type}: ${params.args.map(a => a.value ?? a.description).join(" ")}`);
+        } else if (method === "Log.entryAdded" && params.entry.level === "error" && !EXPECTED_CONSOLE.test(params.entry.text)) {
+            consoleProblems.push(`[${label}] ${params.entry.text} ${params.entry.url ?? ""}`);
+        }
+    });
+
+    const page = {
+        /** Führt JavaScript in der Seite aus (Rückgabe per return). */
+        async eval(code) {
+            const result = await cdp.send("Runtime.evaluate", {
+                expression: `(async () => { ${code} })()`,
+                awaitPromise: true,
+                returnByValue: true
+            }, sessionId);
+            if (result.exceptionDetails) {
+                throw new Error(`[${label}] ${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}`);
+            }
+            return result.result.value;
+        },
+        async goto(url) {
+            await cdp.send("Page.navigate", { url }, sessionId);
+            await sleep(800);
+        },
+        /** Wartet, bis ein JavaScript-Ausdruck wahr ist. */
+        async waitFor(expression, description, timeout = 5000) {
+            const end = Date.now() + timeout;
+            while (Date.now() < end) {
+                if (await page.eval(`return Boolean(${expression});`)) return;
+                await sleep(100);
+            }
+            throw new Error(`[${label}] Timeout: ${description}`);
+        },
+        viewport: (width, height) => cdp.send("Emulation.setDeviceMetricsOverride",
+            { width, height, deviceScaleFactor: 1, mobile: width < 600 }, sessionId),
+        async screenshot(name) {
+            const { data } = await cdp.send("Page.captureScreenshot", { format: "png" }, sessionId);
+            fs.writeFileSync(path.join(OUTPUT_DIR, name), Buffer.from(data, "base64"));
+        },
+        text: selector => page.eval(`return document.querySelector(${JSON.stringify(selector)})?.textContent ?? null;`),
+        visible: selector => page.eval(`const e = document.querySelector(${JSON.stringify(selector)}); return !!e && e.offsetParent !== null;`),
+        fill: (selector, value) => page.eval(`
+            const e = document.querySelector(${JSON.stringify(selector)});
+            e.value = ${JSON.stringify(value)};
+            e.dispatchEvent(new Event("input", { bubbles: true }));`),
+        submit: selector => page.eval(`document.querySelector(${JSON.stringify(selector)}).requestSubmit();`),
+        click: selector => page.eval(`document.querySelector(${JSON.stringify(selector)}).click();`),
+        clickText: (selector, text) => page.eval(`
+            [...document.querySelectorAll(${JSON.stringify(selector)})]
+                .find(e => e.textContent.trim() === ${JSON.stringify(text)}).click();`)
+    };
+
+    await page.viewport(1400, 1000);
+    return page;
+}
+
+// ===========================================================================
+// Testablauf
+// ===========================================================================
+
+fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+console.log(`Browser: ${browserPath}`);
+
+const server = await startServer(SERVER_PORT, { HOST: "127.0.0.1" });
+const APP = server.baseUrl;
+const { browser, profileDir, wsUrl } = await launchBrowser();
+const cdp = createCdpClient(wsUrl);
+await cdp.ready;
+
+const { test, section, summary } = createTestRunner();
+const anna = await openPage(cdp, "Anna");
+const ben = await openPage(cdp, "Ben");
+
+section("Anmeldung und globaler Chat");
+
+await test("Login-Ansicht wird angezeigt", async () => {
+    await anna.goto(APP);
+    await ben.goto(APP);
+    assert.ok(await anna.visible("#view-login"));
+    assert.equal(await anna.visible("#sidebar"), false);
+    await anna.screenshot("01-login.png");
+});
+await test("Login Anna und Ben", async () => {
+    await anna.fill("#login-name", "Anna");
+    await anna.submit("#login-form");
+    await anna.waitFor(`!document.getElementById("view-overview").hidden`, "Übersicht");
+    await ben.fill("#login-name", "Ben");
+    await ben.submit("#login-form");
+    await ben.waitFor(`!document.getElementById("view-overview").hidden`, "Übersicht");
+    await anna.waitFor(`document.getElementById("online-count").textContent === "2"`, "2 online");
+    assert.equal(await anna.text("#current-user-name"), "Anna");
+    assert.match(await anna.text("#app-version"), /^v\d+\.\d+\.\d+$/);
+});
+await test("Doppelter Name zeigt Fehlermeldung", async () => {
+    const duplicate = await openPage(cdp, "Doppelt");
+    await duplicate.goto(APP);
+    await duplicate.fill("#login-name", "anna");
+    await duplicate.submit("#login-form");
+    await duplicate.waitFor(`document.getElementById("login-error").textContent.includes("vergeben")`, "Fehlermeldung");
+});
+await test("Globaler Chat (HTML wird als Text angezeigt)", async () => {
+    await anna.fill("#global-chat-input", "Hallo <b>Welt</b>");
+    await anna.submit("#global-chat-form");
+    await ben.waitFor(`document.querySelector("#global-chat-messages .chat-text")?.textContent === "Hallo <b>Welt</b>"`, "Chat bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector("#global-chat-messages b") === null;`), true);
+    assert.equal(await anna.eval(`return document.querySelector("#global-chat-messages .chat-message-own") !== null;`), true);
+    await anna.screenshot("02-uebersicht.png");
+});
+
+section("Lobbys");
+
+await test("Anna erstellt offene Lobby mit Passwort", async () => {
+    await anna.fill("#create-lobby-name", "Freitagsrunde");
+    await anna.fill("#create-lobby-password", "geheim");
+    await anna.submit("#create-lobby-form");
+    await anna.waitFor(`!document.getElementById("view-lobby").hidden`, "Lobby-Ansicht");
+    assert.equal(await anna.text("#lobby-name"), "Freitagsrunde");
+    assert.equal(await anna.visible("#host-game-controls"), true);
+    assert.equal(await anna.visible("#lobby-password-badge"), true);
+    await ben.waitFor(`document.querySelectorAll("#lobby-list .lobby-item").length === 1`, "Lobby in Bens Liste");
+    assert.match(await ben.text("#lobby-list .lobby-item"), /🔒 Freitagsrunde/);
+    await ben.screenshot("03-lobbyliste.png");
+});
+await test("Ben tritt per Passwort-Dialog bei (erst falsch, dann richtig)", async () => {
+    await ben.clickText("#lobby-list button", "Beitreten");
+    await ben.waitFor(`document.getElementById("password-dialog").open`, "Dialog offen");
+    await ben.fill("#password-dialog-input", "falsch");
+    await ben.click('#password-dialog button[value="ok"]');
+    await ben.waitFor(`document.querySelector(".toast-error")?.textContent.includes("Falsches Passwort")`, "Fehler-Hinweis");
+    await ben.waitFor(`document.getElementById("password-dialog").open`, "Dialog erneut offen");
+    await ben.fill("#password-dialog-input", "geheim");
+    await ben.click('#password-dialog button[value="ok"]');
+    await ben.waitFor(`!document.getElementById("view-lobby").hidden`, "Ben in Lobby");
+    assert.equal(await ben.visible("#host-game-controls"), false);
+    await anna.waitFor(`document.querySelectorAll("#member-list li").length === 2`, "2 Mitglieder");
+    await anna.waitFor(`[...document.querySelectorAll("#lobby-chat-messages .chat-message-system")]
+        .some(e => e.textContent.includes("Ben ist der Lobby beigetreten"))`, "Systemnachricht");
+});
+await test("Lobby-Chat erscheint nicht im globalen Chat", async () => {
+    await ben.fill("#lobby-chat-input", "Moin aus der Lobby");
+    await ben.submit("#lobby-chat-form");
+    await anna.waitFor(`[...document.querySelectorAll("#lobby-chat-messages .chat-text")]
+        .some(e => e.textContent === "Moin aus der Lobby")`, "Lobby-Chat bei Anna");
+    assert.equal(await anna.eval(`return [...document.querySelectorAll("#global-chat-messages .chat-text")]
+        .some(e => e.textContent === "Moin aus der Lobby");`), false);
+});
+
+section("Risiko-Würfel");
+
+await test("Host startet Spiel → lädt bei beiden", async () => {
+    await anna.click("#start-game-button");
+    await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");
+    await ben.waitFor(`document.querySelector(".rw")`, "Spiel bei Ben");
+    assert.equal(await anna.text("#game-title"), "Risiko-Würfel");
+    assert.equal(await anna.visible("#end-game-button"), true);
+    assert.equal(await ben.visible("#end-game-button"), false);
+    assert.equal(await ben.eval(`return document.querySelectorAll(".rw-attacker .rw-buttons button").length;`), 3);
+    assert.equal(await ben.eval(`return document.querySelectorAll(".rw-defender .rw-buttons button").length;`), 2);
+    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/risiko-wuerfel/style.css"]').length;`), 1);
+});
+await test("Würfeln und Auswertung bei beiden sichtbar", async () => {
+    await anna.clickText(".rw-attacker .rw-buttons button", "3 Würfel");
+    await ben.waitFor(`document.querySelectorAll(".rw-attacker .rw-die").length === 3`, "3 Angreifer-Würfel bei Ben");
+    await anna.waitFor(`[...document.querySelectorAll(".rw-attacker .rw-buttons button")].every(b => b.disabled)`, "Angreifer gesperrt");
+    await ben.clickText(".rw-defender .rw-buttons button", "2 Würfel");
+    await anna.waitFor(`document.querySelectorAll(".rw-comparison").length === 2`, "Auswertung bei Anna");
+    await ben.waitFor(`document.querySelector(".rw-summary")`, "Zusammenfassung bei Ben");
+    assert.match(await anna.text(".rw-rolled-by"), /Anna/);
+    await anna.screenshot("04-risiko.png");
+});
+await test("Reload mitten im Spiel stellt den Zustand wieder her", async () => {
+    await ben.goto(APP);
+    await ben.waitFor(`document.querySelectorAll(".rw-comparison").length === 2`, "Auswertung nach Reload", 6000);
+    assert.equal(await ben.text("#lobby-name"), "Freitagsrunde");
+    await ben.waitFor(`document.querySelectorAll("#lobby-chat-messages .chat-message").length > 0`, "Lobby-Chatverlauf");
+});
+await test("Host beendet Spiel → beide zurück in der Lobby-Ansicht", async () => {
+    // confirm() würde den headless Browser blockieren → im Test automatisch bestätigen
+    await anna.eval(`window.confirm = () => true;`);
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".rw")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".rw")`, "Spiel weg bei Anna");
+    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/"]').length;`), 0, "Spiel-CSS entfernt");
+    assert.equal(await anna.visible("#host-game-controls"), true);
+    assert.equal(await ben.text("#game-title"), "Kein Spiel ausgewählt");
+});
+
+section("Host-Wechsel und private Lobbys");
+
+await test("Host verlässt Lobby → Ben wird Host", async () => {
+    await anna.click("#leave-lobby-button");
+    await anna.waitFor(`!document.getElementById("view-overview").hidden`, "Anna in Übersicht");
+    await ben.waitFor(`!document.getElementById("host-game-controls").hidden`, "Ben hat Host-Steuerung");
+    assert.match(await ben.text("#member-list"), /👑 Ben/);
+});
+await test("Private Lobby per Einladungslink", async () => {
+    await ben.click("#leave-lobby-button");
+    await ben.waitFor(`!document.getElementById("view-overview").hidden`, "Ben in Übersicht");
+    await ben.fill("#create-lobby-name", "Geheim");
+    await ben.eval(`document.getElementById("create-lobby-visibility").value = "private";`);
+    await ben.submit("#create-lobby-form");
+    await ben.waitFor(`!document.getElementById("view-lobby").hidden`, "Ben in privater Lobby");
+
+    // Über localhost geöffnet → Link muss die LAN-Adresse enthalten (sofern vorhanden)
+    const link = await ben.eval(`return document.getElementById("invite-link").value;`);
+    assert.match(link, /\/\?join=[A-Z0-9]{6}$/);
+    const lanUrls = (await (await fetch(APP + "/api/info")).json()).lanUrls;
+    if (lanUrls.length > 0) assert.ok(link.startsWith(lanUrls[0]), "LAN-Adresse statt localhost: " + link);
+
+    await sleep(200);
+    assert.equal(await anna.eval(`return document.querySelectorAll("#lobby-list .lobby-item").length;`), 0, "nicht in der Liste");
+
+    // Gleiche Origin wie Annas Sitzung verwenden (localStorage ist pro Adresse getrennt)
+    await anna.goto(`${APP}/${link.split("/").pop()}`);
+    await anna.waitFor(`!document.getElementById("view-lobby").hidden`, "Anna per Link beigetreten", 6000);
+    assert.equal(await anna.text("#lobby-name"), "Geheim");
+    assert.equal(await anna.eval(`return location.search;`), "", "URL aufgeräumt");
+});
+await test("Beitritt per Code-Feld (kleingeschrieben)", async () => {
+    const code = await ben.text("#lobby-code");
+    await anna.click("#leave-lobby-button");
+    await anna.waitFor(`!document.getElementById("view-overview").hidden`, "Übersicht");
+    await anna.fill("#join-code-input", code.toLowerCase());
+    assert.equal(await anna.eval(`return document.getElementById("join-code-input").value;`), code);
+    await anna.submit("#join-code-form");
+    await anna.waitFor(`!document.getElementById("view-lobby").hidden`, "per Code beigetreten");
+});
+
+section("Darstellung und Abmeldung");
+
+await test("Mobile Ansicht (420 px) ohne horizontales Scrollen", async () => {
+    await ben.viewport(420, 900);
+    await sleep(300);
+    const overflow = await ben.eval(`return document.documentElement.scrollWidth - document.documentElement.clientWidth;`);
+    await ben.screenshot("05-mobil.png");
+    assert.ok(overflow <= 0, `horizontaler Überlauf: ${overflow}px`);
+    await ben.viewport(1400, 1000);
+});
+await test("Abmelden → Login-Ansicht, Ben sieht 1 Online", async () => {
+    await anna.click("#logout-button");
+    await anna.waitFor(`!document.getElementById("view-login").hidden`, "Login");
+    await ben.waitFor(`document.getElementById("online-count").textContent === "1"`, "1 online");
+});
+await test("Keine JavaScript-Fehler in der Konsole", async () => {
+    assert.equal(consoleProblems.length, 0, "\n       " + consoleProblems.join("\n       "));
+});
+
+// ---------------------------------------------------------------------------
+cdp.close();
+browser.kill();
+server.stop();
+await sleep(500);
+fs.rmSync(profileDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+
+console.log(`\nScreenshots: ${OUTPUT_DIR}`);
+process.exit(summary());

@@ -1,0 +1,119 @@
+/*
+ * Risiko-Würfel – Styles.
+ * Alle Klassen beginnen mit "rw-", damit sie nicht mit dem Lobby-System
+ * oder anderen Spielen kollidieren.
+ */
+
+.rw {
+    --rw-attacker: #c62828;
+    --rw-defender: #1565c0;
+    --rw-win: #2e7d32;
+}
+
+.rw-round {
+    text-align: center;
+    font-weight: bold;
+    color: var(--color-muted, #666);
+    margin-bottom: 12px;
+}
+
+.rw-sides {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.rw-side {
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+}
+
+.rw-side h3 { margin: 0 0 8px; }
+.rw-attacker { border-top: 6px solid var(--rw-attacker); }
+.rw-defender { border-top: 6px solid var(--rw-defender); }
+
+.rw-dice {
+    min-height: 86px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.rw-die {
+    width: 64px;
+    height: 64px;
+    border: 2px solid #333;
+    border-radius: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 32px;
+    font-weight: bold;
+    background: #fff;
+    color: #222;
+    animation: rw-pop 250ms ease-out;
+}
+
+.rw-die-win  { border-color: var(--rw-win); box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.3); }
+.rw-die-lose { opacity: 0.45; }
+
+@keyframes rw-pop {
+    0%   { transform: scale(0.8); }
+    60%  { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.rw-rolled-by {
+    color: var(--color-muted, #666);
+    font-size: 14px;
+    margin: 8px 0 12px;
+}
+
+.rw-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.rw-result {
+    margin-top: 16px;
+    text-align: center;
+}
+
+.rw-waiting { color: var(--color-muted, #666); }
+
+.rw-comparisons {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 8px;
+}
+
+.rw-comparison { padding: 2px 0; font-weight: bold; }
+.rw-winner-attacker { color: var(--rw-attacker); }
+.rw-winner-defender { color: var(--rw-defender); }
+
+.rw-summary {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 18px;
+    font-weight: bold;
+}
+
+.rw-loss-attacker { color: var(--rw-attacker); }
+.rw-loss-defender { color: var(--rw-defender); }
+
+.rw-actions {
+    margin-top: 12px;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .rw-sides { grid-template-columns: 1fr; }
+}

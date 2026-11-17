@@ -1,0 +1,347 @@
+/*
+ * AfterWork Arcade – Basis-Styles des Lobby-Systems.
+ *
+ * Farben und Abstände sind als CSS-Variablen definiert und können auch
+ * von Spielen genutzt werden (z. B. var(--color-muted)).
+ */
+
+:root {
+    --color-bg: #f2f2f2;
+    --color-surface: #ffffff;
+    --color-text: #222222;
+    --color-muted: #666666;
+    --color-border: #dddddd;
+    --color-primary: #333333;
+    --color-primary-hover: #555555;
+    --color-danger: #c62828;
+    --color-danger-hover: #a31f1f;
+    --color-success: #2e7d32;
+    --color-warning: #f9a825;
+    --color-highlight: #e3f2fd;
+
+    --radius: 12px;
+    --radius-small: 7px;
+    --shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    --gap: 16px;
+}
+
+/* Das hidden-Attribut soll immer gewinnen, auch gegen display:flex/grid. */
+[hidden] { display: none !important; }
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: var(--color-bg);
+    color: var(--color-text);
+}
+
+h1, h2, h3 { margin-top: 0; }
+h3 { margin-bottom: 8px; }
+
+.muted { color: var(--color-muted); }
+
+/* --------------------------------------------------------------------------
+ * Kopfzeile
+ * ------------------------------------------------------------------------ */
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--color-primary);
+    color: #fff;
+}
+
+.topbar-title {
+    margin: 0;
+    font-size: 22px;
+}
+
+.topbar-version {
+    font-size: 12px;
+    font-weight: normal;
+    opacity: 0.6;
+}
+
+.topbar-session {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.connection-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--color-muted);
+}
+.connection-status[data-status="open"] { background: #66bb6a; }
+.connection-status[data-status="reconnecting"] { background: var(--color-warning); }
+.connection-status[data-status="closed"] { background: #ef5350; }
+
+/* --------------------------------------------------------------------------
+ * Layout: Inhalt links, Seitenleiste (Online + globaler Chat) rechts
+ * ------------------------------------------------------------------------ */
+.layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: var(--gap);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--gap);
+}
+
+/* Vor dem Login ist die Seitenleiste ausgeblendet → Inhalt nimmt die volle Breite ein. */
+.layout:has(> .sidebar[hidden]) { grid-template-columns: 1fr; }
+
+.content,
+.sidebar,
+.view {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-width: 0;
+}
+
+.card {
+    background: var(--color-surface);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+}
+
+.overview-grid,
+.lobby-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap);
+}
+
+/* --------------------------------------------------------------------------
+ * Formulare und Buttons
+ * ------------------------------------------------------------------------ */
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-inline {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+.form-inline input { flex: 1; min-width: 0; }
+
+label {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+input,
+select {
+    padding: 9px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    font-size: 15px;
+    font-family: inherit;
+    background: #fff;
+    color: var(--color-text);
+}
+
+input:focus,
+select:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+button {
+    padding: 9px 16px;
+    border: 0;
+    border-radius: var(--radius-small);
+    background: var(--color-primary);
+    color: #fff;
+    font-size: 15px;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+}
+button:hover:not(:disabled) { background: var(--color-primary-hover); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.button-secondary {
+    background: #e0e0e0;
+    color: var(--color-text);
+}
+.button-secondary:hover:not(:disabled) { background: #d0d0d0; }
+
+.button-danger { background: var(--color-danger); }
+.button-danger:hover:not(:disabled) { background: var(--color-danger-hover); }
+
+.form-error {
+    color: var(--color-danger);
+    min-height: 1.2em;
+    margin: 0;
+}
+
+.code,
+.code-input {
+    font-family: "Consolas", "Courier New", monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------------------
+ * Login
+ * ------------------------------------------------------------------------ */
+.login-card {
+    max-width: 420px;
+    width: 100%;
+    margin: 40px auto;
+}
+
+/* --------------------------------------------------------------------------
+ * Lobby-Übersicht
+ * ------------------------------------------------------------------------ */
+.lobby-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.lobby-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border);
+}
+.lobby-item:last-child { border-bottom: 0; }
+.lobby-item .muted { font-size: 14px; margin-top: 4px; }
+
+/* --------------------------------------------------------------------------
+ * Lobby
+ * ------------------------------------------------------------------------ */
+.lobby-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.lobby-header h2 { margin-bottom: 4px; }
+.lobby-header p { margin: 0; }
+
+.game-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+.game-toolbar h2 { margin: 0; }
+
+.game-container:empty { display: none; }
+
+.member-list,
+.online-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 16px;
+}
+.member-list li,
+.online-list li { padding: 4px 0; }
+
+.online-list {
+    max-height: 160px;
+    overflow-y: auto;
+    margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * Chat
+ * ------------------------------------------------------------------------ */
+.chat-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-messages {
+    height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-small);
+    padding: 8px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    background: #fafafa;
+}
+
+.chat-message {
+    padding: 3px 4px;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+}
+.chat-message-own { background: var(--color-highlight); }
+.chat-message-system { color: var(--color-muted); font-style: italic; }
+
+.chat-time {
+    color: var(--color-muted);
+    font-size: 12px;
+    margin-right: 6px;
+}
+.chat-author { margin-right: 4px; }
+
+/* --------------------------------------------------------------------------
+ * Dialog und Hinweise
+ * ------------------------------------------------------------------------ */
+dialog {
+    border: 0;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+    width: min(360px, 90vw);
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+
+.dialog-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.toast-container {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1000;
+}
+
+.toast {
+    max-width: 320px;
+    padding: 12px 16px;
+    border-radius: var(--radius-small);
+    background: var(--color-primary);
+    color: #fff;
+    box-shadow: var(--shadow);
+}
+.toast-error { background: var(--color-danger); }
+
+/* --------------------------------------------------------------------------
+ * Responsive: unter 900 px alles untereinander
+ * ------------------------------------------------------------------------ */
+@media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+    .overview-grid,
+    .lobby-grid { grid-template-columns: 1fr; }
+}

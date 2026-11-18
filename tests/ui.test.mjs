@@ -285,7 +285,7 @@ await test("Lobby-Chat erscheint nicht im globalen Chat", async () => {
 section("Risiko-Würfel");
 
 await test("Host startet Spiel → lädt bei beiden", async () => {
-    assert.equal(await anna.eval(`return document.querySelectorAll("#game-select option").length;`), 2, "2 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll("#game-select option").length;`), 3, "3 Spiele zur Auswahl");
     await anna.eval(`document.getElementById("game-select").value = "risiko-wuerfel";`);
     await anna.click("#start-game-button");
     await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");
@@ -471,6 +471,132 @@ await test("Host beendet Revierkampf → zurück in der Lobby", async () => {
     await ben.waitFor(`!document.querySelector(".rk")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".rk")`, "Spiel weg bei Anna");
     assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/"]').length;`), 0);
+});
+
+section("Schocken");
+
+/** Anzahl verdeckter Würfel im Platz eines Spielers (aus Sicht der Seite). */
+const hiddenDiceOf = (page, name) => page.eval(`
+    const seat = [...document.querySelectorAll(".sk-seat")].find(s => s.querySelector(".sk-seat-name").textContent.startsWith(${JSON.stringify(name)}));
+    return seat ? seat.querySelectorAll(".sk-die.sk-hidden").length : -1;`);
+const enabled = (page, selector) => page.eval(`const b = document.querySelector(${JSON.stringify(selector)}); return !!b && !b.disabled;`);
+
+await test("Host startet Schocken → Setup und Regel-Kurzfassung", async () => {
+    await anna.eval(`document.getElementById("game-select").value = "schocken";`);
+    await anna.click("#start-game-button");
+    await anna.waitFor(`document.querySelector('.sk[data-phase="setup"] .sk-start')`, "Setup mit Start-Button bei Anna");
+    await ben.waitFor(`document.querySelector('.sk[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".sk-start") === null;`), true, "Ben hat keinen Start-Button");
+    assert.equal(await anna.visible(".sk-rules-table"), true, "Regeln unter dem Spielfeld sichtbar");
+});
+await test("Partie mit 1 Bot: Würfe bleiben für Mitspieler verdeckt, Auswertung erscheint", async () => {
+    await anna.eval(`const s = document.querySelector(".sk-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await anna.eval(`const s = document.querySelector(".sk-mode"); s.value = "half"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".sk-overlay").textContent.includes("Bots: 1")`, "Bens Anzeige: 1 Bot");
+    await anna.click(".sk-start");
+    await anna.waitFor(`document.querySelector('.sk[data-phase="playing"]')`, "Partie läuft");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".sk-seat").length;`), 3);
+
+    // Jeder Mensch würfelt: Becher bleibt zu (auch für ihn selbst). Der Erste deckt auf,
+    // danach sehen beide seine Würfel; der andere beendet blind.
+    let checkedHidden = false;
+    let checkedLook = false;
+    const end = Date.now() + 25000;
+    while (Date.now() < end && !(await anna.visible(".sk-reveal-box"))) {
+        for (const [page, other, name] of [[anna, ben, "Anna"], [ben, anna, "Ben"]]) {
+            if (!(await enabled(page, ".sk-roll"))) continue;
+            await page.click(".sk-roll");
+            await page.waitFor(`document.querySelector(".sk-look")`, "Aufdecken-Button");
+            assert.equal(await page.eval(`return document.querySelectorAll(".sk-panel-dice .sk-die.sk-hidden").length;`), 3,
+                "eigene Würfel nach dem Wurf verdeckt");
+            if (!checkedHidden) {
+                // Die Sprung-/Dreh-Animation muss beim Werfer auch nach dem Neuaufbau
+                // (Antwort auf den Klick) noch laufen.
+                await sleep(250);
+                const running = await page.eval(`return document.getAnimations()
+                    .filter(a => a.animationName === "sk-tumble" && a.playState === "running"
+                        && a.effect.target.closest(".sk-panel-dice")).length;`);
+                assert.equal(running, 3, "3 laufende Würfel-Animationen im eigenen Becher");
+            }
+            await other.waitFor(`(() => { const seat = [...document.querySelectorAll(".sk-seat")].find(s => s.querySelector(".sk-seat-name").textContent.startsWith("${name}")); return seat && seat.querySelectorAll(".sk-die").length === 3; })()`, "Würfel im fremden Platz");
+            assert.equal(await hiddenDiceOf(other, name), 3, "fremde Würfel sind verdeckt");
+            checkedHidden = true;
+
+            if (!checkedLook) {
+                await page.click(".sk-look");
+                await page.waitFor(`document.querySelectorAll(".sk-panel-dice .sk-die.sk-hidden").length === 0`, "eigene Würfel aufgedeckt");
+                await other.waitFor(`(() => { const seat = [...document.querySelectorAll(".sk-seat")].find(s => s.querySelector(".sk-seat-name").textContent.startsWith("${name}")); return seat && seat.querySelectorAll(".sk-die.sk-hidden").length === 0; })()`, "Mitspieler sieht die aufgedeckten Würfel");
+                checkedLook = true;
+            }
+            await page.waitFor(`!document.querySelector(".sk-finish")?.disabled`, "Beenden-Button aktiv");
+            await page.click(".sk-finish");
+        }
+        await sleep(200);
+    }
+    assert.ok(checkedHidden && checkedLook, "Verdecken und Aufdecken geprüft");
+    await anna.waitFor(`document.querySelector(".sk-reveal-box")`, "Auswertung", 3000);
+    assert.equal(await anna.eval(`return document.querySelectorAll(".sk-reveal-list li").length;`), 3);
+    assert.equal(await anna.eval(`return document.querySelectorAll(".sk-reveal-list .sk-die.sk-hidden").length;`), 0, "alles aufgedeckt");
+    await anna.screenshot("09-schocken.png");
+
+    await ben.viewport(420, 900);
+    await sleep(300);
+    const overflow = await ben.eval(`return document.documentElement.scrollWidth - document.documentElement.clientWidth;`);
+    await ben.screenshot("10-schocken-mobil.png");
+    await ben.viewport(1400, 1000);
+    assert.ok(overflow <= 0, `horizontaler Überlauf: ${overflow}px`);
+});
+await test("Nächste Runde startet automatisch, nur Einsen lassen sich herauslegen", async () => {
+    // "Weiter": Anna allein reicht nicht (2 Menschen → beide nötig), mit Ben geht es weiter
+    await anna.waitFor(`document.querySelector(".sk-continue") && !document.querySelector(".sk-continue").disabled`, "Weiter-Button aktiv");
+    await anna.click(".sk-continue");
+    await ben.waitFor(`document.querySelector(".sk-continue")?.textContent.includes("1/2")`, "Ben sieht 1/2");
+    await anna.waitFor(`document.querySelector(".sk-reveal-box")?.textContent.includes("Warte auf die anderen")`, "Anna wartet");
+    assert.equal(await anna.visible(".sk-reveal-box"), true, "Auswertung bleibt nach einem Klick");
+    await ben.waitFor(`!document.querySelector(".sk-continue").disabled`, "Bens Weiter-Button aktiv");
+    await ben.click(".sk-continue");
+    await anna.waitFor(`!document.querySelector(".sk-reveal-box") || document.querySelector(".sk-reveal").hidden`, "Auswertung weg", 3000);
+    // Warten, bis ein Mensch am Zug ist (der Bot braucht ein paar Sekunden)
+    let page = null;
+    const end = Date.now() + 15000;
+    while (!page && Date.now() < end) {
+        if (await enabled(anna, ".sk-roll")) page = anna;
+        else if (await enabled(ben, ".sk-roll")) page = ben;
+        else await sleep(200);
+    }
+    assert.ok(page, "ein Mensch ist am Zug");
+    // Würfeln und aufdecken, bis eine Eins dabei ist (oder keine Würfe mehr übrig sind)
+    let heraus = false;
+    for (let attempt = 0; attempt < 3 && !heraus; attempt++) {
+        if (!(await enabled(page, ".sk-roll"))) break;
+        await page.click(".sk-roll");
+        await page.waitFor(`document.querySelector(".sk-look")`, "Becher zu");
+        assert.equal(await page.eval(`return document.querySelectorAll(".sk-panel-dice .sk-clickable").length;`), 0,
+            "verdeckt: nichts anklickbar");
+        await page.click(".sk-look");
+        await page.waitFor(`!document.querySelector(".sk-look")`, "aufgedeckt");
+        const dice = await page.eval(`return [...document.querySelectorAll(".sk-panel-dice .sk-die")].map(d => ({
+            label: d.getAttribute("aria-label"), clickable: d.classList.contains("sk-clickable"), aside: d.classList.contains("sk-aside") }));`);
+        for (const die of dice) {
+            if (die.clickable) assert.equal(die.label, "Würfel 1", "nur Einsen sind anklickbar");
+        }
+        const clickable = dice.filter(d => d.clickable).length;
+        if (clickable > 0 && clickable < dice.filter(d => !d.aside).length) {
+            await page.click(".sk-panel-dice .sk-die.sk-clickable");
+            assert.equal(await page.eval(`return document.querySelectorAll(".sk-panel-dice .sk-selected").length;`), 1);
+            await sleep(600); // Aufdeck-Animation abwarten
+            await (page === anna ? ben : anna).screenshot("11-schocken-zug.png");
+            await page.click(".sk-roll");
+            await page.waitFor(`document.querySelectorAll(".sk-panel-dice .sk-aside").length >= 1`, "Eins herausgelegt");
+            heraus = true;
+        }
+    }
+    if (!heraus) await (page === anna ? ben : anna).screenshot("11-schocken-zug.png");
+});
+await test("Host beendet Schocken → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".sk")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".sk")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

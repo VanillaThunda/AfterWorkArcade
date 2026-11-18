@@ -71,4 +71,14 @@ module.exports = {
     // tick(state, { now, dtMs, hostId }) {
     //     return { ...state, elapsedMs: (state.elapsedMs ?? 0) + dtMs };
     // }
+
+    // Optional für Spiele mit geheimen Informationen (z. B. verdeckte Würfel,
+    // Handkarten): liefert die Sicht EINES Spielers auf den Zustand. Ist die
+    // Funktion vorhanden, bekommt jedes Mitglied nur seine gefilterte Sicht –
+    // geheime Daten verlassen den Server dann nie. Den Zustand nicht verändern,
+    // sondern eine (teilweise) Kopie zurückgeben. Beispiel: games/schocken/game.js
+    //
+    // viewFor(state, userId) {
+    //     return { ...state, secret: undefined };
+    // }
 };

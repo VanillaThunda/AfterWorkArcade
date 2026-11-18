@@ -371,6 +371,83 @@ await test("Spiel beenden → keine Ticks mehr", async () => {
 });
 
 // ===========================================================================
+section("Spiel: Schocken (spielerspezifische Sicht mit viewFor)");
+// ===========================================================================
+const players = { [anna.user.id]: anna, [ben.user.id]: ben };
+const streams = { [anna.user.id]: streamAnna, [ben.user.id]: streamBen };
+
+await test("Schocken starten (ohne Bots)", async () => {
+    const selected = streamBen.next(e => e.type === "game-state" && e.data?.gameId === "schocken", "Schocken-Zustand");
+    assert.equal((await call("POST", "/api/game/select", { gameId: "schocken" }, anna.token)).status, 200);
+    assert.equal((await selected).data.state.phase, "setup");
+    assert.equal((await gameAction({ type: "settings", bots: 0, mode: "half" }, anna.token)).status, 200);
+    const started = streamBen.next(e => e.type === "game-state" && e.data?.state.phase === "playing", "Partie läuft");
+    assert.equal((await gameAction({ type: "start" }, anna.token)).status, 200);
+    const state = (await started).data.state;
+    assert.equal(state.round.laden, true);
+    assert.equal(state.round.order.length, 2);
+});
+await test("Becher zu: Würfel werden an niemanden übertragen, auch nicht an den Werfer", async () => {
+    const { state } = streamBen.events.filter(e => e.type === "game-state" && e.data).at(-1).data;
+    const firstId = state.round.order[0];
+    const otherId = state.round.order[1];
+
+    const ownEvent = streams[firstId].next(e => e.type === "game-state" && e.data?.state.round.turns[firstId].throws === 1, "eigener Wurf");
+    const otherEvent = streams[otherId].next(e => e.type === "game-state" && e.data?.state.round.turns[firstId].throws === 1, "fremder Wurf");
+    assert.equal((await gameAction({ type: "roll" }, players[firstId].token)).status, 200);
+
+    for (const event of [await ownEvent, await otherEvent]) {
+        const turn = event.data.state.round.turns[firstId];
+        assert.deepEqual(turn.dice, [0, 0, 0], "Würfel verborgen");
+        assert.equal(turn.result, null);
+    }
+
+    // Falscher Spieler → 400
+    assert.equal((await gameAction({ type: "roll" }, players[otherId].token)).status, 400);
+});
+await test("Aufdecken zeigt die Würfel allen, Auswertung deckt alles auf", async () => {
+    const { state } = streamBen.events.filter(e => e.type === "game-state" && e.data).at(-1).data;
+    const firstId = state.round.order[0];
+    const otherId = state.round.order[1];
+
+    const ownLook = streams[firstId].next(e => e.type === "game-state" && e.data?.state.round.turns[firstId].open, "eigenes Aufdecken");
+    const otherLook = streams[otherId].next(e => e.type === "game-state" && e.data?.state.round.turns[firstId].open, "fremdes Aufdecken");
+    assert.equal((await gameAction({ type: "look" }, players[firstId].token)).status, 200);
+    const own = (await ownLook).data.state.round.turns[firstId];
+    const foreign = (await otherLook).data.state.round.turns[firstId];
+    assert.ok(own.dice.every(v => v >= 1 && v <= 6), "eigene Würfel sichtbar");
+    assert.deepEqual(foreign.dice, own.dice, "Mitspieler sieht dieselben Würfel");
+    assert.equal(foreign.result.label, own.result.label);
+
+    // Erster beendet, Zweiter würfelt blind und beendet verdeckt → Auswertung zeigt alles
+    assert.equal((await gameAction({ type: "finish" }, players[firstId].token)).status, 200);
+    const revealEvent = streams[otherId].next(e => e.type === "game-state" && e.data?.state.round.stage === "reveal", "Auswertung");
+    assert.equal((await gameAction({ type: "roll" }, players[otherId].token)).status, 200);
+    assert.equal((await gameAction({ type: "finish" }, players[otherId].token)).status, 200);
+    const revealed = (await revealEvent).data.state;
+    assert.ok(revealed.round.turns[otherId].dice.every(v => v >= 1), "verdeckter Wurf nach der Auswertung sichtbar");
+    assert.equal(revealed.reveal.entries.length, 2);
+    assert.ok(revealed.revealRemainingMs > 20000, "Auswertung bleibt ca. 30 s stehen");
+});
+await test("„Weiter“ von beiden Spielern startet die nächste Runde sofort", async () => {
+    const acked = streamBen.next(e => e.type === "game-state" && e.data?.state.reveal?.acks.length === 1, "1 Klick");
+    assert.equal((await gameAction({ type: "continue" }, anna.token)).status, 200);
+    assert.equal((await acked).data.state.round.stage, "reveal");
+    const nextRound = streamBen.next(e => e.type === "game-state" && e.data?.state.round.stage === "turns", "nächste Runde");
+    assert.equal((await gameAction({ type: "continue" }, ben.token)).status, 200);
+    await nextRound;
+});
+await test("Reload bekommt ebenfalls die gefilterte Sicht", async () => {
+    const reloaded = openEventStream(BASE, ben.token);
+    const event = await reloaded.waitFor(e => e.type === "game-state" && e.data?.gameId === "schocken", "Schocken nach Reload");
+    assert.equal(event.data.state.round.turnEndsAt, undefined, "interne Zeitstempel werden nicht übertragen");
+    reloaded.close();
+    const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
+    await call("POST", "/api/game/end", {}, anna.token);
+    await ended;
+});
+
+// ===========================================================================
 section("Host-Wechsel, Lobby löschen, Beitritt per Code");
 // ===========================================================================
 await test("Host verlässt Lobby → Ben wird Host", async () => {

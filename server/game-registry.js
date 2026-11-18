@@ -44,6 +44,9 @@ function validatePlugin(plugin, folderName) {
     if (plugin.tick !== undefined && typeof plugin.tick !== "function") {
         throw new Error("tick muss eine Funktion sein (oder ganz weggelassen werden).");
     }
+    if (plugin.viewFor !== undefined && typeof plugin.viewFor !== "function") {
+        throw new Error("viewFor muss eine Funktion sein (oder ganz weggelassen werden).");
+    }
     if (meta.tickMs !== undefined && !(Number.isFinite(meta.tickMs) && meta.tickMs >= MIN_TICK_MS)) {
         throw new Error(`meta.tickMs muss eine Zahl ab ${MIN_TICK_MS} sein.`);
     }

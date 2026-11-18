@@ -1,11 +1,11 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.3.1 (siehe `package.json` und `changelog.md`)
+**Version:** 0.4.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
-und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel** und das
-Echtzeit-Strategiespiel **Revierkampf**.
+und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
+Echtzeit-Strategiespiel **Revierkampf** und das Kneipen-Würfelspiel **Schocken**.
 
 ---
 
@@ -18,7 +18,7 @@ Echtzeit-Strategiespiel **Revierkampf**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel und Revierkampf](#8-spiele-risiko-würfel-und-revierkampf)
+8. [Spiele: Risiko-Würfel, Revierkampf, Schocken](#8-spiele-risiko-würfel-revierkampf-schocken)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung (Ordner-basiert)](#11-versionierung-ordner-basiert)
@@ -41,7 +41,8 @@ Die Startmeldung zeigt die erreichbaren Adressen, z. B.:
 ```
 [Spiele] Geladen: Revierkampf (revierkampf)
 [Spiele] Geladen: Risiko-Würfel (risiko-wuerfel)
-AfterWork Arcade v0.3.0 läuft auf Port 3000
+[Spiele] Geladen: Schocken (schocken)
+AfterWork Arcade v0.4.0 läuft auf Port 3000
   Lokal:    http://localhost:3000
   Netzwerk: http://192.168.1.20:3000
 ```
@@ -150,9 +151,12 @@ _stable/
 │  ├─ risiko-wuerfel/
 │  │  ├─ game.js           Server-Teil (Regeln, Zustand)
 │  │  └─ public/           Browser-Teil (client.js, style.css)
-│  └─ revierkampf/
-│     ├─ game.js           Server-Teil (Karte, Truppen, Angriffe, Bots, tick)
-│     └─ public/           Browser-Teil (Canvas-Darstellung, client.js, style.css)
+│  ├─ revierkampf/
+│  │  ├─ game.js           Server-Teil (Karte, Truppen, Angriffe, Bots, tick)
+│  │  └─ public/           Browser-Teil (Canvas-Darstellung, client.js, style.css)
+│  └─ schocken/
+│     ├─ game.js           Server-Teil (Würfe, Wertung, Deckel, Bots, tick, viewFor)
+│     └─ public/           Browser-Teil (CSS-Würfel, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -205,7 +209,7 @@ sendet der Server den kompletten aktuellen Zustand.
 | `lobby`        | Details der eigenen Lobby oder `null`   | Lobby-Mitglieder |
 | `chat`         | eine Nachricht `{ scope, userName, text, system, timestamp, ... }` | alle bzw. Lobby |
 | `chat-history` | `{ scope, messages }`                   | einzelner User |
-| `game-state`   | `{ gameId, state }` oder `null`         | Lobby-Mitglieder |
+| `game-state`   | `{ gameId, state }` oder `null` – bei Spielen mit `viewFor` je Mitglied gefiltert | Lobby-Mitglieder |
 
 Zusätzlich schickt der Server alle 25 s einen SSE-Kommentar (`: ping`) als Heartbeat.
 
@@ -278,9 +282,20 @@ module.exports = {
     // Optional für Echtzeitspiele: wird alle meta.tickMs vom Server aufgerufen,
     // solange das Spiel läuft. context = { now, dtMs, hostId }
     // Rückgabe: neuer Zustand (wird an alle verteilt) oder undefined (nichts senden).
-    tick(state, context) {}
+    tick(state, context) {},
+
+    // Optional für geheime Informationen: Sicht EINES Mitglieds auf den Zustand.
+    // Den Zustand nicht verändern, sondern eine (teilweise) Kopie zurückgeben.
+    viewFor(state, userId) { return { ...state, secret: undefined }; }
 };
 ```
+
+**Geheime Informationen (`viewFor`)**: Ohne `viewFor` bekommen alle Lobby-Mitglieder denselben,
+vollständigen Zustand. Hat ein Spiel `viewFor`, ruft `server/sync.js` die Funktion für jedes
+Mitglied einzeln auf (auch nach Reload/Wiederverbindung) und schickt nur deren Ergebnis.
+Geheime Daten (verdeckte Würfel, Handkarten …) verlassen den Server so nie. Wirft `viewFor`
+einen Fehler, wird `state: null` gesendet – nie versehentlich der volle Zustand.
+Beispiel: `games/schocken/game.js` (Würfel unter dem Becher werden zu `0`).
 
 **Echtzeitspiele (`tick`)**: Der Spiel-Takt (`server/game-ticker.js`) ist ein einziger Timer
 für alle Lobbys. Er ruft `tick()` nur für Lobbys auf, in denen ein Spiel mit `tick` läuft; endet
@@ -291,8 +306,8 @@ Text mit einem Zeichen pro Feld, ca. 13 KB).
 
 Wichtig:
 - Der Zustand muss sich als **JSON** übertragen lassen (keine Funktionen, Maps, Klassen).
-- Der **gesamte** Zustand wird an alle Lobby-Mitglieder geschickt. Geheime Informationen
-  (z. B. Handkarten) gehören daher aktuell nicht hinein.
+- Ohne `viewFor` wird der **gesamte** Zustand an alle Lobby-Mitglieder geschickt. Geheime
+  Informationen (z. B. Handkarten) brauchen daher einen `viewFor`-Hook.
 - Zufall und Regeln gehören auf den Server, damit niemand schummeln kann.
 - `handleAction` sollte den alten Zustand nicht verändern, sondern einen neuen zurückgeben.
 
@@ -320,7 +335,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Risiko-Würfel und Revierkampf
+## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken
 
 ### 8.1 Risiko-Würfel
 
@@ -393,6 +408,83 @@ Zustand (Auszug): `phase` (`setup`/`spawn`/`running`/`finished`), `grid` (Text, 
 Feld: `~` Wasser, `.` neutral, `A`–`P` Teilnehmer 1–16), `players` (Name, Farbe, Truppen, Felder,
 Bot ja/nein), `attacks`, `log` (letzte Ereignisse).
 Die Balance-Werte stehen als Konstanten oben in `games/revierkampf/game.js`.
+
+### 8.3 Schocken
+
+Würfelspiel mit 3 Würfeln pro Spieler und 13 Deckeln (Strafpunkten), nach den Regeln von
+schockfreunde.de. Der Wurf „Jennie“ heißt hier **General**. Für 1–8 Spieler plus 0–5 Bots
+(höchstens 8 Teilnehmer, mindestens 2). Eine Kurzfassung der Regeln steht im Spiel unter dem
+Spielfeld.
+
+**Rangfolge (klassisch) und Deckel**
+
+| Rang | Wurf | Beispiel | Deckel |
+|------|------|----------|--------|
+| 1 | Schock Aus | 1-1-1 | alle (Hälfte endet) |
+| 2 | Schock 6 … Schock 2 | 1-1-6 … 1-1-2 | 6 … 2 |
+| 3 | General | 6-6-6 … 2-2-2 | 3 |
+| 4 | Straße | 4-5-6 … 1-2-3 | 2 |
+| 5 | Zahlen (absteigend gelesen) | 6-6-5 … 3-2-1 | 1 |
+
+General und Straße zählen nur „aus der Hand“, also wenn alle 3 Würfel in einem Wurf fallen;
+sonst zählen sie als Zahlen. Ein Schock darf über mehrere Würfe gebaut werden.
+Gleichstand: weniger Würfe gewinnt, danach wer früher an der Reihe war.
+
+**Ablauf eines Zugs** (reihum, max. 3 Würfe; beim Laden genau 1)
+
+1. **Würfeln.** Der Becher bleibt zu – auch der Werfer kennt seine Würfel nicht.
+2. **Aufdecken ja/nein.** Wer aufdeckt, zeigt die Würfel **allen**. Blind weiterwürfeln oder
+   verdeckt beenden ist erlaubt.
+3. Aufgedeckt dürfen **nur Einsen** herausgelegt werden (offen, nicht mehr würfelbar).
+   Zwei aufgedeckte Sechsen dürfen zu einer Eins gedreht werden (drei Sechsen → zwei Einsen),
+   nicht im letzten erlaubten Wurf; die übrige Sechs muss dann neu geworfen werden.
+4. Neu würfeln oder Zug beenden.
+
+**Vorgabe des Ersten:** Seine Wurfzahl ist die Obergrenze für alle anderen. Beendet er
+**aufgedeckt**, decken alle Nachfolgenden beim Beenden ihres Zugs automatisch auf; beendet er
+verdeckt, entscheidet jeder selbst. Die Vorgabe steht in der Kopfzeile („Vorgabe: 2 Würfe · verdeckt“).
+
+**Deckel und Partie**
+- Der beste Wurf bestimmt die Deckelzahl, der schlechteste bekommt sie: erst aus dem Topf (13),
+  ist der Topf leer, gibt der Spieler mit dem besten Wurf seine Deckel ab. Ab leerem Topf
+  spielen nur noch Spieler mit Deckeln. Schock Aus: Der Verlierer bekommt sofort alle Deckel.
+- Wer alle 13 Deckel hat, verliert die Hälfte. Der Rundenverlierer beginnt die nächste Runde.
+- Die erste Runde einer Partie ist das **Laden** (jeder würfelt einmal, Startspieler zufällig).
+- Umfang (Host): **Eine Hälfte** oder **Komplett** – zwei Hälften; verliert derselbe Spieler
+  beide, ist die Partie vorbei, sonst folgt ein **Finale** zwischen den beiden Hälften-Verlierern
+  (der Verlierer der 1. Hälfte trägt den Markierungsdeckel „M“ und beginnt das Finale).
+
+**Zeiten**
+- Zugtimer 30 s: Danach wird ggf. automatisch gewürfelt und der Zug im aktuellen Zustand beendet.
+- Auswertung: bleibt bis zu 30 s stehen. Mit „Weiter“ geht es sofort weiter, sobald mindestens
+  75 % der (menschlichen) Spieler geklickt haben (2 Spieler → beide, 4 Spieler → drei).
+
+**Bots** würfeln mit etwa 0,9 s Pause pro Schritt, decken auf, legen Einsen heraus, drehen
+Sechsen und hören bei einem Schock, General oder einer Straße auf. Als Erster spielen sie mit
+ca. 5 % Wahrscheinlichkeit blind (1 Wurf, Becher zu). Bots nutzen nur sichtbare Informationen.
+
+**Sichtbarkeit (`viewFor`):** Würfel unter einem geschlossenen Becher werden an **niemanden**
+übertragen (Wert `0`), auch nicht an den Werfer. Herausgelegte Einsen, aufgedeckte Würfe und
+die Auswertung sind für alle sichtbar. Gewürfelt wird mit `crypto.randomInt` auf dem Server.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Partie zu.
+Wer geht, legt seine Deckel in den Topf zurück; ist er am Zug, geht es mit dem Nächsten weiter.
+Bleiben weniger als 2 Teilnehmer oder kein Mensch übrig, endet die Partie.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "bots": 2, "mode": "full" }` (`mode`: `full`/`half`) | Host, vor der Partie |
+| Partie starten | `{ "type": "start" }` | Host, vor der Partie |
+| Würfeln | `{ "type": "roll", "aside": [0] }` (`aside` = Einsen, die vorher herausgelegt werden) | am Zug |
+| Aufdecken | `{ "type": "look" }` | am Zug |
+| Sechsen drehen | `{ "type": "turn-sixes" }` | am Zug, aufgedeckt |
+| Zug beenden | `{ "type": "finish" }` | am Zug |
+| Weiter | `{ "type": "continue" }` | Spieler, während der Auswertung |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Partieende |
+
+Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/schocken/game.js`.
 
 ---
 
@@ -474,11 +566,12 @@ Server auf Port 3000 stört also nicht.
 
 | Befehl                   | Datei                      | Dauer  | Prüft |
 |--------------------------|----------------------------|--------|-------|
-| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Sicherheit der Dateiauslieferung |
+| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
+| `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~40 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Mobilansicht und Konsolenfehlern |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~60 s  | alle vier nacheinander |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mobilansicht und Konsolenfehlern |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle fünf nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

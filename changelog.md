@@ -8,6 +8,41 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.4.0] – 2026-11-18
+
+### Hinzugefügt
+- **Neues Spiel „Schocken“** – Kneipen-Würfelspiel nach den Regeln von schockfreunde.de
+  („Jennie“ heißt hier „General“), klassische Rangfolge Schock Aus > Schock 6…2 > General >
+  Straße > Zahlen:
+  - Becher-Mechanik: Nach dem Wurf bleibt der Becher zu, auch für den Werfer. Aufdecken zeigt
+    die Würfel allen; blind weiterwürfeln oder verdeckt beenden ist möglich.
+  - Nur aufgedeckte Einsen dürfen herausgelegt werden; Sechsen drehen (2 → eine Eins,
+    3 → zwei Einsen, nicht im letzten Wurf); General/Straße nur „aus der Hand“.
+  - Der Erste gibt Wurfzahl und Spielweise vor – deckt er auf, müssen alle anderen beim
+    Beenden ebenfalls aufdecken.
+  - 13 Deckel: erst aus dem Topf, dann zwischen den Spielern; Schock Aus = alle Deckel.
+    Laden, eine Hälfte oder komplett (zwei Hälften + Finale) – vom Host wählbar.
+  - 0–5 Bots (spielen als Erster gelegentlich blind), Zugtimer 30 s.
+  - Auswertung bleibt bis zu 30 s stehen, „Weiter“ ab 75 % der Spieler.
+  - Ressourcenschonende Optik: Filztisch, CSS-Würfel mit Sprung-/Dreh-Animation beim Wurf
+    und Umklappen beim Aufdecken, Deckel-Stapel, Zeitbalken als CSS-Animation (keine
+    Animationsschleife, kein Canvas). Regel-Kurzfassung unter dem Spielfeld.
+- **Spielerspezifische Sicht für Spiele (`viewFor`)**: Spiele können optional
+  `viewFor(state, userId)` exportieren. `server/sync.js` schickt dann jedem Mitglied nur seine
+  gefilterte Sicht (auch nach Reload) – geheime Informationen verlassen den Server nicht.
+  Bestehende Spiele ohne `viewFor` funktionieren unverändert.
+- Tests: `tests/schocken.test.mjs` (25 Prüfungen), Schocken im API-Test (Sichtbarkeit per SSE,
+  „Weiter“) und im UI-Test (verdeckte Würfel, laufende Würfelanimation, Aufdecken, Herauslegen
+  nur von Einsen, „Weiter“). Neues Skript `npm run test:schocken`.
+
+### Geändert
+- Vorlage `games/_vorlage/game.js` dokumentiert den `viewFor`-Hook.
+
+### Getestet
+- Alle automatisierten Prüfungen bestanden (68 API, 23 Revierkampf, 25 Schocken, 4 Reconnect, 31 UI).
+
+---
+
 ## [0.3.1] – 2026-11-18
 
 ### Behoben

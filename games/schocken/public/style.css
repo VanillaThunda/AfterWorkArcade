@@ -1,0 +1,356 @@
+/*
+ * Schocken – Styles.
+ * Alle Klassen beginnen mit "sk-". Keine Bilder, keine Schriften – Würfel,
+ * Deckel und Tisch sind reines CSS. Animationen laufen nur kurz (Wurf) bzw.
+ * als einzelne CSS-Animation (Zugtimer) und entfallen bei reduzierter Bewegung.
+ */
+
+.sk-root { container-type: inline-size; }
+
+.sk {
+    display: grid;
+    gap: 12px;
+    --sk-felt: #1f6b45;
+    --sk-felt-dark: #13452c;
+    --sk-wood: #6b4226;
+    --sk-chip: #c0392b;
+    --sk-gold: #f4c542;
+}
+
+/* --- Tisch ----------------------------------------------------------------- */
+.sk-table {
+    position: relative;
+    min-height: 260px;
+    padding: 14px;
+    border-radius: 18px;
+    border: 6px solid var(--sk-wood);
+    background: radial-gradient(ellipse at center, var(--sk-felt) 0%, var(--sk-felt-dark) 100%);
+    color: #f5f5f0;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
+}
+
+.sk-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.sk-status { font-weight: 600; letter-spacing: 0.02em; }
+
+.sk-pot {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.25);
+}
+.sk-pot[hidden] { display: none; }
+.sk-pot-label { font-size: 13px; opacity: 0.85; }
+
+/* Deckel-Stapel: kleine überlappende Kreise */
+.sk-chips { display: inline-flex; align-items: center; min-height: 14px; }
+.sk-chips i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--sk-chip);
+    border: 2px solid #f0d9b5;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.sk-chips i + i { margin-left: -7px; }
+
+/* --- Spielerplätze ---------------------------------------------------------- */
+.sk-seats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.sk-seat {
+    position: relative;
+    display: grid;
+    gap: 6px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+}
+.sk-seat-me { background: rgba(255, 255, 255, 0.14); }
+.sk-seat-active { border-color: var(--sk-gold); background: rgba(244, 197, 66, 0.14); }
+.sk-seat-out { opacity: 0.45; }
+.sk-seat-best { border-color: #7ddc92; }
+.sk-seat-loser { border-color: #ff7b6b; }
+
+.sk-seat-top { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sk-seat-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.sk-seat-chips { display: inline-flex; align-items: center; gap: 5px; }
+.sk-marker {
+    display: inline-grid;
+    place-items: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--sk-gold);
+    color: #3a2a00;
+    font-size: 11px;
+    font-weight: 700;
+}
+.sk-seat-dice { display: flex; gap: 6px; min-height: 30px; }
+.sk-seat-info { font-size: 13px; opacity: 0.9; min-height: 1.2em; }
+
+/* --- Würfel ------------------------------------------------------------------ */
+.sk-die {
+    --sk-size: 54px;
+    width: var(--sk-size);
+    height: var(--sk-size);
+    padding: calc(var(--sk-size) * 0.13);
+    box-sizing: border-box;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    place-items: center;
+    border-radius: calc(var(--sk-size) * 0.18);
+    background: linear-gradient(145deg, #ffffff, #e6e6e0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+    color: #222;
+    user-select: none;
+}
+.sk-die i {
+    width: 72%;
+    height: 72%;
+    border-radius: 50%;
+    background: #1d1d1d;
+}
+.sk-die-small { --sk-size: 30px; }
+
+/* Verdeckt: Becher-Optik */
+.sk-die.sk-hidden {
+    display: grid;
+    place-items: center;
+    background: linear-gradient(160deg, #8a5a35, #4e2f19);
+    color: #f0d9b5;
+    font-weight: 700;
+    font-size: calc(var(--sk-size) * 0.45);
+}
+
+/* Herausgelegt: liegt offen, leicht abgesetzt */
+.sk-die.sk-aside { outline: 2px solid var(--sk-gold); outline-offset: 2px; }
+.sk-die.sk-selected { transform: translateY(-6px); outline: 2px dashed var(--sk-gold); outline-offset: 2px; }
+.sk-die.sk-clickable { cursor: pointer; transition: transform 0.12s; }
+.sk-die.sk-clickable:hover { transform: translateY(-3px); }
+.sk-die.sk-clickable.sk-selected:hover { transform: translateY(-6px); }
+.sk-die:focus-visible { outline: 3px solid #4da3ff; outline-offset: 2px; }
+
+.sk-die.sk-rolling { animation: sk-roll 0.5s ease-out backwards; }
+.sk-die.sk-flip { animation: sk-flip 0.35s ease-out backwards; }
+
+/* Verdeckte Würfel: springen mehrfach und drehen sich dabei. Den Versatz
+   zwischen den Würfeln (und das Fortsetzen nach einem Neuaufbau) setzt
+   client.js per animation-delay. */
+.sk-die.sk-tumble { animation: sk-tumble 0.85s cubic-bezier(0.3, 0.7, 0.4, 1) backwards; }
+@keyframes sk-tumble {
+    0%   { transform: translateY(0) rotate(0) scale(1); }
+    18%  { transform: translateY(-60%) rotate(-150deg) scale(1.08); }
+    36%  { transform: translateY(0) rotate(-300deg) scale(0.95, 1.05); }
+    52%  { transform: translateY(-30%) rotate(-500deg) scale(1.04); }
+    68%  { transform: translateY(0) rotate(-640deg) scale(1.03, 0.97); }
+    82%  { transform: translateY(-10%) rotate(-700deg); }
+    100% { transform: translateY(0) rotate(-720deg); } /* volle Umdrehungen → "?" steht wieder aufrecht */
+}
+@keyframes sk-flip {
+    from { transform: rotateY(90deg); }
+    to   { transform: none; }
+}
+@keyframes sk-roll {
+    0%   { transform: translateY(-14px) rotate(-30deg) scale(0.85); opacity: 0.4; }
+    40%  { transform: translateY(2px) rotate(18deg); opacity: 1; }
+    70%  { transform: translateY(-3px) rotate(-6deg); }
+    100% { transform: none; }
+}
+
+/* --- Zugtimer ---------------------------------------------------------------- */
+.sk-timer {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+}
+.sk-timer-fill {
+    height: 100%;
+    background: var(--sk-gold);
+    transform-origin: left;
+    animation-name: sk-timer;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+@keyframes sk-timer {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); background: #ff7b6b; }
+}
+
+/* --- Auswertung (über dem Tisch) ------------------------------------------- */
+/* Auswertung liegt im Fluss über den Plätzen – so wird nie etwas abgeschnitten. */
+.sk-reveal {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 12px;
+}
+.sk-reveal[hidden] { display: none; }
+.sk-reveal-box {
+    max-width: 520px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #222;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.sk-reveal-box.sk-pop { animation: sk-pop 0.25s ease-out; }
+.sk-reveal-box h4 { margin: 0 0 8px; }
+.sk-reveal-list { margin: 0; padding-left: 22px; display: grid; gap: 5px; }
+.sk-reveal-list li { padding: 2px 4px; border-radius: 6px; }
+.sk-reveal-list li > * { vertical-align: middle; }
+.sk-reveal-name { display: inline-block; min-width: 80px; font-weight: 600; }
+.sk-reveal-dice { display: inline-flex; gap: 4px; margin: 0 8px; }
+.sk-reveal-dice .sk-die { --sk-size: 24px; }
+.sk-reveal-label { font-size: 13px; }
+.sk-reveal-list .sk-best { background: #e3f6e7; }
+.sk-reveal-list .sk-loser { background: #fde4e1; }
+.sk-reveal-box { pointer-events: auto; } /* "Weiter"-Button klickbar */
+.sk-reveal-text { margin: 10px 0 0; font-weight: 600; }
+.sk-reveal-ready { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sk-ready {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #eee;
+    color: #666;
+    font-size: 12px;
+}
+.sk-ready-yes { background: #e3f6e7; color: #1e6b33; font-weight: 600; }
+.sk-reveal-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 12px;
+    margin: 10px 0 8px;
+}
+.sk-reveal-box .sk-timer { background: #e4e4e4; }
+.sk-reveal-half { margin: 6px 0 0; color: var(--color-danger, #c62828); font-weight: 700; }
+
+@keyframes sk-pop {
+    from { transform: scale(0.92); opacity: 0; }
+    to   { transform: none; opacity: 1; }
+}
+
+/* --- Overlays (Setup, Ende) ------------------------------------------------ */
+.sk-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(10, 30, 20, 0.5);
+}
+.sk-overlay[hidden] { display: none; }
+.sk-overlay-box {
+    max-width: 440px;
+    max-height: 100%;
+    overflow: auto;
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+.sk-overlay-box h3 { margin: 0 0 8px; }
+.sk-overlay-box p { margin: 6px 0; font-size: 14px; }
+.sk-setup { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; margin-top: 12px; }
+.sk-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.sk-new-match { margin-top: 10px; }
+.sk-muted { color: var(--color-muted, #666); font-size: 13px; }
+
+/* --- Eigener Bereich -------------------------------------------------------- */
+.sk-panel {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px 16px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+}
+.sk-panel[hidden] { display: none; }
+.sk-panel-dice {
+    display: flex;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: radial-gradient(ellipse at center, var(--sk-felt), var(--sk-felt-dark));
+}
+.sk-panel-info { display: grid; gap: 3px; }
+.sk-panel-info strong { font-size: 18px; }
+.sk-panel-buttons { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.sk-panel > .sk-timer { grid-column: 1 / -1; }
+
+/* --- Ereignisse und Regeln ------------------------------------------------- */
+.sk-log {
+    margin: 0;
+    padding: 8px 12px 8px 28px;
+    border-radius: 10px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #ddd);
+    font-size: 13px;
+    color: var(--color-muted, #666);
+    max-height: 120px;
+    overflow: auto;
+}
+.sk-log[hidden] { display: none; }
+.sk-log li:first-child { color: var(--color-text, #222); }
+
+.sk-rules {
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    padding: 8px 14px;
+    font-size: 13px;
+}
+.sk-rules summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.sk-rules-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 6px 20px;
+    margin-top: 6px;
+}
+.sk-rules h5 { margin: 6px 0 4px; font-size: 13px; }
+.sk-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.sk-rules-table { border-collapse: collapse; width: 100%; }
+.sk-rules-table th, .sk-rules-table td { padding: 2px 6px; text-align: left; border-bottom: 1px solid var(--color-border, #eee); }
+.sk-rules-table td:last-child, .sk-rules-table th:last-child { text-align: right; }
+.sk-rules-note { margin: 6px 0 0; color: var(--color-muted, #666); }
+
+/* --- Schmale Breiten -------------------------------------------------------- */
+@container (max-width: 520px) {
+    .sk-table { padding: 10px; border-width: 4px; }
+    .sk-seats { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+    .sk-panel { grid-template-columns: 1fr; }
+    .sk-panel-dice { justify-content: center; }
+    .sk-die { --sk-size: 48px; }
+    .sk-die-small { --sk-size: 26px; }
+    .sk-panel-buttons button { flex: 1 1 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    /* Die Würfel-Animationen bleiben bewusst erhalten: Sie sind kurz (< 1 s),
+       werden nur durch einen eigenen Wurf ausgelöst und sind ausdrücklich
+       gewünscht. Windows meldet "reduzierte Bewegung" bereits, sobald die
+       Animationseffekte des Systems ausgeschaltet sind. */
+    .sk-reveal-box.sk-pop { animation: none; }
+}

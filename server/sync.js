@@ -20,6 +20,7 @@ const eventHub = require("./event-hub");
 const users = require("./users");
 const lobbies = require("./lobbies");
 const chat = require("./chat");
+const gameRegistry = require("./game-registry");
 
 function pushOnlineUsers() {
     eventHub.broadcast("online-users", users.listUsers());
@@ -38,12 +39,39 @@ function sendLobbyLeft(userId) {
     eventHub.sendToUser(userId, "lobby", null);
 }
 
-function buildGameState(lobby) {
-    return lobby.game ? { gameId: lobby.game.id, state: lobby.game.state } : null;
+/** viewFor-Funktion des aktiven Spiels oder null (= alle sehen denselben Zustand). */
+function getViewFor(lobby) {
+    if (!lobby.game) return null;
+    const plugin = gameRegistry.getGame(lobby.game.id);
+    return plugin && typeof plugin.viewFor === "function" ? plugin.viewFor : null;
+}
+
+/**
+ * Spielzustand für einen bestimmten User. Hat das Spiel einen viewFor-Hook,
+ * wird der Zustand für diesen User gefiltert (geheime Infos bleiben auf dem
+ * Server). Bei einem Fehler wird nichts verraten: state = null.
+ */
+function buildGameState(lobby, userId) {
+    if (!lobby.game) return null;
+    const viewFor = getViewFor(lobby);
+    if (!viewFor) return { gameId: lobby.game.id, state: lobby.game.state };
+
+    try {
+        return { gameId: lobby.game.id, state: viewFor(lobby.game.state, userId) };
+    } catch (err) {
+        console.error(`[Spiele] Fehler in ${lobby.game.id}.viewFor:`, err);
+        return { gameId: lobby.game.id, state: null };
+    }
 }
 
 function pushGameState(lobby) {
-    eventHub.sendToUsers(lobby.memberIds, "game-state", buildGameState(lobby));
+    if (!getViewFor(lobby)) {
+        eventHub.sendToUsers(lobby.memberIds, "game-state", buildGameState(lobby));
+        return;
+    }
+    for (const userId of lobby.memberIds) {
+        eventHub.sendToUser(userId, "game-state", buildGameState(lobby, userId));
+    }
 }
 
 function broadcastChatMessage(message) {
@@ -78,7 +106,7 @@ function sendFullState(user) {
 
     if (lobby) {
         sendLobbyChatHistory(user, lobby);
-        eventHub.sendToUser(user.id, "game-state", buildGameState(lobby));
+        eventHub.sendToUser(user.id, "game-state", buildGameState(lobby, user.id));
     }
 }
 

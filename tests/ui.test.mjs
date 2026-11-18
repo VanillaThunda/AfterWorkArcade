@@ -287,6 +287,67 @@ await test("Host startet Spiel → lädt bei beiden", async () => {
     assert.equal(await ben.eval(`return document.querySelectorAll(".rw-defender .rw-buttons button").length;`), 2);
     assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/risiko-wuerfel/style.css"]').length;`), 1);
 });
+/** Position und Größe eines Elements (für Layout-Prüfungen). */
+const rectOf = (page, selector) => page.eval(`
+    const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };`);
+
+await test("Spielmodus: Lobby links, Spiel in der Mitte, Chats rechts", async () => {
+    for (const page of [anna, ben]) {
+        await page.waitFor(`document.querySelector(".layout").classList.contains("game-mode")`, "Spielmodus aktiv");
+    }
+    const game = await rectOf(anna, ".game-card");
+    const members = await rectOf(anna, "#lobby-members-card");
+    const lobbyChat = await rectOf(anna, "#lobby-chat-card");
+    assert.ok(members.right <= game.left, "Mitglieder links vom Spiel");
+    assert.ok(lobbyChat.left >= game.right, "Lobby-Chat rechts vom Spiel");
+    assert.ok(game.height > 800, `Spiel nutzt die volle Höhe (${game.height}px)`);
+    assert.equal(await anna.visible("#lobby-chat-input"), true, "Lobby-Chat bedienbar");
+    assert.equal(await anna.visible("#global-chat-messages"), false, "globaler Chat standardmäßig eingeklappt");
+    assert.equal(await anna.visible("#online-list"), false, "Online-Liste standardmäßig eingeklappt");
+    const overflow = await anna.eval(`return document.documentElement.scrollHeight - document.documentElement.clientHeight;`);
+    assert.ok(overflow <= 0, `Seite scrollt nicht vertikal (${overflow}px)`);
+});
+await test("Spielmodus: Leisten ein-/ausklappen", async () => {
+    const before = await rectOf(anna, ".game-card");
+    await anna.click('.dock-toggle[data-dock="left"]');
+    await anna.click('.dock-toggle[data-dock="right"]');
+    assert.equal(await anna.visible("#lobby-members-card"), false, "Mitglieder ausgeblendet");
+    assert.equal(await anna.visible("#lobby-chat-card"), false, "Lobby-Chat ausgeblendet");
+    const collapsed = await rectOf(anna, ".game-card");
+    assert.ok(collapsed.width > before.width + 400, `Spiel breiter (${before.width} → ${collapsed.width}px)`);
+
+    // Neue Nachricht bei eingeklappter Chat-Leiste → Hinweis-Punkt
+    await ben.fill("#lobby-chat-input", "Gut gewürfelt!");
+    await ben.submit("#lobby-chat-form");
+    await anna.waitFor(`!document.querySelector('.dock-toggle[data-dock="right"] .dock-badge').hidden`, "Hinweis-Punkt");
+
+    await anna.click('.dock-toggle[data-dock="right"]');
+    assert.equal(await anna.eval(`return document.querySelector('.dock-toggle[data-dock="right"] .dock-badge').hidden;`), true, "Hinweis weg nach Ausklappen");
+    await anna.click('.dock-toggle[data-dock="left"]');
+    assert.equal(await anna.visible("#lobby-members-card"), true);
+
+    // Globaler Chat: Hinweis an der eingeklappten Überschrift, Aufklappen per Klick
+    await ben.fill("#global-chat-input", "Hallo alle");
+    await ben.submit("#global-chat-form");
+    await anna.waitFor(`!document.querySelector("#global-chat-card .dock-badge").hidden`, "Hinweis globaler Chat");
+    await anna.click("#global-chat-card .section-toggle");
+    assert.equal(await anna.visible("#global-chat-messages"), true, "globaler Chat ausgeklappt");
+    assert.equal(await anna.eval(`return document.querySelector("#global-chat-card .dock-badge").hidden;`), true);
+    await anna.click("#global-chat-card .section-toggle");
+});
+await test("Spielmodus mobil (420 px): Spiel zuerst, kein horizontales Scrollen", async () => {
+    await ben.viewport(420, 900);
+    await sleep(300);
+    const game = await rectOf(ben, ".game-card");
+    const header = await rectOf(ben, ".lobby-header");
+    assert.ok(game.top < header.top, "Spiel über dem Lobby-Kopf");
+    assert.equal(await ben.visible('.dock-toggle[data-dock="left"]'), false, "keine Dock-Schalter");
+    const overflow = await ben.eval(`return document.documentElement.scrollWidth - document.documentElement.clientWidth;`);
+    await ben.screenshot("06-spielmodus-mobil.png");
+    assert.ok(overflow <= 0, `horizontaler Überlauf: ${overflow}px`);
+    await ben.viewport(1400, 1000);
+});
 await test("Würfeln und Auswertung bei beiden sichtbar", async () => {
     await anna.clickText(".rw-attacker .rw-buttons button", "3 Würfel");
     await ben.waitFor(`document.querySelectorAll(".rw-attacker .rw-die").length === 3`, "3 Angreifer-Würfel bei Ben");
@@ -312,6 +373,11 @@ await test("Host beendet Spiel → beide zurück in der Lobby-Ansicht", async ()
     assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/"]').length;`), 0, "Spiel-CSS entfernt");
     assert.equal(await anna.visible("#host-game-controls"), true);
     assert.equal(await ben.text("#game-title"), "Kein Spiel ausgewählt");
+    for (const page of [anna, ben]) {
+        await page.waitFor(`!document.querySelector(".layout").classList.contains("game-mode")`, "Spielmodus beendet");
+    }
+    assert.equal(await anna.visible("#global-chat-messages"), true, "globaler Chat wieder sichtbar");
+    assert.equal(await anna.visible('.dock-toggle[data-dock="left"]'), false, "Dock-Schalter ausgeblendet");
 });
 
 section("Host-Wechsel und private Lobbys");

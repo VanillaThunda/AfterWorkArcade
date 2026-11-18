@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.1.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.2.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -72,6 +72,17 @@ kopieren und dort per SSH `node server.js` ausführen.
   LAN-Adresse des Servers, damit andere Geräte ihn öffnen können.
 - **Spielsteuerung (nur Host):** Spiel auswählen → „Spiel starten“; „Spiel beenden“ führt
   alle zurück in die Lobby-Ansicht.
+- **Spielmodus:** Solange ein Spiel läuft, rückt es in den Fokus. Die Lobby-Elemente werden
+  kompakt an die Seitenränder angedockt:
+  - **links:** Lobby-Kopf (Name, Code, „Lobby verlassen“), Mitglieder und Einladungslink,
+  - **Mitte:** das Spiel über die volle Bildschirmhöhe,
+  - **rechts:** Lobby-Chat, darunter Online-Liste und globaler Chat (standardmäßig eingeklappt,
+    per Klick auf die Überschrift aufklappbar).
+  - Beide Leisten lassen sich über die Schalter „« Lobby“ / „Chats »“ auf einen schmalen Streifen
+    einklappen. Ein roter Punkt zeigt neue Nachrichten in eingeklappten Bereichen an.
+    Der Einklapp-Zustand wird pro Browser gemerkt (`localStorage`, Schlüssel `awa-dock`).
+  - Unter 900 px Breite wird nicht angedockt: Das Spiel steht oben, die Lobby-Elemente darunter.
+  - Nach „Spiel beenden“ erscheint wieder die gewohnte Lobby-Ansicht.
 - **Globaler Chat und Online-Liste:** in der Seitenleiste, für alle angemeldeten User.
 - **Wiederverbindung:** Nach einem Reload oder kurzen Verbindungsabbruch (bis 30 s) ist man
   automatisch wieder in seiner Lobby, inklusive Spielstand.
@@ -144,6 +155,7 @@ _stable/
       ├─ api.js            fetch-Wrapper, Token, EventSource
       ├─ ui.js             Toasts, Passwort-Dialog, Verbindungsanzeige
       ├─ chat.js           Chat-Komponente (global und Lobby)
+      ├─ dock.js           Spielmodus: Andocken/Einklappen der Leisten, Hinweis-Punkte
       ├─ game-loader.js    lädt/entlädt den Client-Teil eines Spiels
       └─ views/            login.js, lobby-list.js, lobby-room.js
 ```
@@ -345,19 +357,26 @@ Alle Einstellungen stehen in `server/config.js`:
 
 ## 11. Versionierung (Ordner-basiert)
 
-Es gibt (noch) keine Git-Versionierung. Stattdessen:
+Es gibt (noch) keine Git-Versionierung. Stattdessen (verbindlich, siehe auch
+`AfterWorkArcade/README_claude-code.txt`):
 
-- `AfterWorkArcade/_stable/` enthält **immer die aktuelle Version**.
-- Ältere Versionen liegen in Ordnern mit ihrer Versionsnummer, z. B. `AfterWorkArcade/v0.0.1/`.
+- `AfterWorkArcade/_stable/` enthält **immer die aktuelle, freigegebene Version**.
+- `AfterWorkArcade/_dev/` ist die Arbeitskopie für die nächste Version (nur während der Entwicklung).
+- Ältere Versionen liegen in Ordnern mit ihrer Versionsnummer, z. B. `AfterWorkArcade/v0.1.0/`.
 
-**Ablauf für eine neue Version** (Beispiel: von 0.1.0 auf 0.2.0):
+So kann jederzeit einfach auf eine ältere Version zurückgewechselt werden.
 
-1. Ordner `_stable` umbenennen in `v0.1.0` (= die bisherige Version, steht in `package.json`).
-2. Neuen Ordner `_stable` anlegen und den Inhalt von `v0.1.0` hineinkopieren.
-3. Änderungen in `_stable` vornehmen.
-4. In `_stable/package.json` die `version` erhöhen.
-5. In `_stable/changelog.md` einen neuen Abschnitt `## [0.2.0] – JJJJ-MM-TT` oben einfügen.
-6. `dokumentation.md` aktualisieren, falls sich Funktionsweise oder Schnittstellen geändert haben.
+**Ablauf für eine neue Version** – gilt für Major, Minor und Bugfix (Beispiel: von 0.1.0 auf 0.2.0):
+
+1. Den kompletten Ordner `_stable` kopieren und die Kopie `_dev` nennen.
+2. Alle Änderungen ausschließlich in `_dev` vornehmen und dort testen (`npm run test:all`).
+3. In `_dev/package.json` die `version` erhöhen.
+4. Ist alles in Ordnung und die Version für die Produktion freigegeben:
+   - `_dev/changelog.md` um einen Abschnitt `## [0.2.0] – JJJJ-MM-TT` (oben) ergänzen,
+   - `_dev/dokumentation.md` aktualisieren, falls sich Funktionsweise oder Schnittstellen geändert haben.
+5. Ordner `_stable` in die bisherige Versionsnummer umbenennen, z. B. `v0.1.0`
+   (steht in dessen `package.json`).
+6. Ordner `_dev` in `_stable` umbenennen.
 
 Versionsnummern nach Semantic Versioning: **MINOR** erhöhen für neue Funktionen (0.1.0 → 0.2.0),
 **PATCH** für reine Fehlerbehebungen (0.1.0 → 0.1.1).
@@ -376,7 +395,7 @@ Server auf Port 3000 stört also nicht.
 |--------------------------|----------------------------|--------|-------|
 | `npm test`               | `tests/api.test.mjs`       | ~2 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Sicherheit der Dateiauslieferung |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~20 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~20 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Mobilansicht und Konsolenfehlern |
 | `npm run test:all`       | `tests/run-all.mjs`        | ~30 s  | alle drei nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.

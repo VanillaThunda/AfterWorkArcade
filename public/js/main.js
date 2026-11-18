@@ -10,6 +10,7 @@
 
 import { api, getToken, setToken, clearToken, openEventStream } from "./api.js";
 import { createChat } from "./chat.js";
+import { createDock } from "./dock.js";
 import { showToast, askPassword, setConnectionStatus } from "./ui.js";
 import { createLoginView } from "./views/login.js";
 import { createLobbyListView } from "./views/lobby-list.js";
@@ -48,6 +49,9 @@ function showView(name) {
 }
 
 const loginView = createLoginView({ onLogin: login });
+
+/** Spielmodus: angedockte, einklappbare Leisten, solange ein Spiel läuft. */
+const dock = createDock();
 
 const lobbyListView = createLobbyListView({
     onCreate: createLobby,
@@ -177,6 +181,7 @@ const eventHandlers = {
         state.lobby = lobby;
 
         if (!lobby) {
+            dock.setGameMode(false);
             lobbyRoomView.reset();
             lobbyChat.clear();
             showView("overview");
@@ -185,12 +190,14 @@ const eventHandlers = {
 
         if (lobby.id !== previousLobbyId) lobbyChat.clear();
         lobbyRoomView.render(lobby, state.me);
+        dock.setGameMode(Boolean(lobby.game));
         showView("lobby");
     },
 
     "chat": message => {
         const target = message.scope === "global" ? globalChat : lobbyChat;
         target.addMessage(message);
+        if (message.userId !== state.me?.id) dock.notifyUnread(message.scope);
     },
 
     "chat-history": ({ scope, messages }) => {
@@ -263,6 +270,7 @@ function endSession(message) {
     state.lobby = null;
     clearToken();
 
+    dock.setGameMode(false);
     lobbyRoomView.reset();
     lobbyChat.clear();
     globalChat.clear();

@@ -338,10 +338,179 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 .toast-error { background: var(--color-danger); }
 
 /* --------------------------------------------------------------------------
+ * Einklappbare Bereiche und Dock-Schalter (Grundzustand außerhalb des Spiels)
+ * ------------------------------------------------------------------------ */
+
+/* Überschriften-Buttons sehen wie normale Überschriften aus. */
+.section-toggle,
+.section-toggle:hover:not(:disabled) {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    cursor: default;
+}
+
+/* Hinweis-Punkt für ungelesene Nachrichten */
+.dock-badge {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--color-danger);
+    flex-shrink: 0;
+}
+
+/* Dock-Schalter gibt es nur im Spielmodus auf breiten Bildschirmen. */
+.dock-toggle { display: none; }
+
+/* --------------------------------------------------------------------------
+ * Spielmodus: Läuft ein Spiel, werden die Lobby-Elemente angedockt.
+ *
+ * Die Zwischen-Container werden per display:contents "aufgelöst", sodass alle
+ * Karten direkte Grid-Elemente von .layout sind und frei platziert werden
+ * können. Ohne laufendes Spiel bleibt das normale Layout unverändert.
+ * ------------------------------------------------------------------------ */
+.layout.game-mode .content,
+.layout.game-mode #view-lobby,
+.layout.game-mode .lobby-grid,
+.layout.game-mode .sidebar {
+    display: contents;
+}
+
+.layout.game-mode { gap: 12px; padding: 12px; }
+.layout.game-mode .card { padding: 14px; }
+.layout.game-mode h3 { font-size: 16px; }
+
+.layout.game-mode .lobby-header      { grid-area: lhead; }
+.layout.game-mode .game-card         { grid-area: game; }
+.layout.game-mode #lobby-members-card { grid-area: lmem; }
+.layout.game-mode #lobby-chat-card   { grid-area: lchat; }
+.layout.game-mode #online-card       { grid-area: online; }
+.layout.game-mode #global-chat-card  { grid-area: global; }
+
+/* Kompakter Lobby-Kopf */
+.layout.game-mode .lobby-header h2 { font-size: 18px; }
+.layout.game-mode .lobby-header p  { font-size: 13px; }
+.layout.game-mode .lobby-header button,
+.layout.game-mode #copy-invite-button {
+    padding: 6px 12px;
+    font-size: 14px;
+}
+
+/* Einladen: Link und Button untereinander */
+.layout.game-mode #lobby-members-card .form-inline {
+    flex-direction: column;
+    align-items: stretch;
+}
+.layout.game-mode #invite-link { font-size: 13px; padding: 7px 10px; }
+
+/* Einklappbare Bereiche (Online-Liste, globaler Chat) */
+.layout.game-mode .section-toggle,
+.layout.game-mode .section-toggle:hover:not(:disabled) { cursor: pointer; }
+.layout.game-mode .section-toggle::before {
+    content: "▾";
+    display: inline-block;
+    width: 1em;
+}
+.layout.game-mode .is-collapsed .section-toggle::before { content: "▸"; }
+.layout.game-mode .is-collapsed > :not(h3) { display: none; }
+.layout.game-mode .is-collapsed h3 { margin-bottom: 0; }
+
+.layout.game-mode .chat-messages { font-size: 13px; }
+.layout.game-mode #global-chat-card .chat-messages { height: 180px; }
+.layout.game-mode .online-list { max-height: 120px; }
+
+/* ---- Breite Bildschirme: links Lobby, Mitte Spiel, rechts Chats ---------- */
+@media (min-width: 901px) {
+    /* Seite füllt genau den Bildschirm, gescrollt wird innerhalb der Bereiche. */
+    body:has(> .layout.game-mode) {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+
+    .layout.game-mode {
+        flex: 1;
+        min-height: 0;
+        width: 100%;
+        max-width: none;
+        grid-template-columns: 260px minmax(0, 1fr) 300px;
+        grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+        grid-template-areas:
+            "ltoggle game rtoggle"
+            "lhead   game lchat"
+            "lmem    game lchat"
+            "lmem    game online"
+            "lmem    game global";
+    }
+
+    .layout.game-mode .game-card,
+    .layout.game-mode #lobby-members-card {
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .layout.game-mode .lobby-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* Lobby-Chat wächst mit der verfügbaren Höhe */
+    .layout.game-mode #lobby-chat-card { min-height: 0; }
+    .layout.game-mode #lobby-chat-card .chat-messages {
+        flex: 1;
+        height: auto;
+        min-height: 120px;
+    }
+
+    .layout.game-mode .dock-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 5px 10px;
+        font-size: 13px;
+    }
+    .layout.game-mode .dock-toggle[data-dock="left"]  { grid-area: ltoggle; }
+    .layout.game-mode .dock-toggle[data-dock="right"] { grid-area: rtoggle; }
+
+    /* Eingeklappte Leisten: nur noch ein schmaler Streifen mit dem Schalter */
+    .layout.game-mode.dock-left-collapsed  { grid-template-columns: 40px minmax(0, 1fr) 300px; }
+    .layout.game-mode.dock-right-collapsed { grid-template-columns: 260px minmax(0, 1fr) 40px; }
+    .layout.game-mode.dock-left-collapsed.dock-right-collapsed {
+        grid-template-columns: 40px minmax(0, 1fr) 40px;
+    }
+
+    .layout.game-mode.dock-left-collapsed .lobby-header,
+    .layout.game-mode.dock-left-collapsed #lobby-members-card,
+    .layout.game-mode.dock-right-collapsed #lobby-chat-card,
+    .layout.game-mode.dock-right-collapsed #online-card,
+    .layout.game-mode.dock-right-collapsed #global-chat-card {
+        display: none;
+    }
+
+    .layout.game-mode.dock-left-collapsed .dock-toggle[data-dock="left"],
+    .layout.game-mode.dock-right-collapsed .dock-toggle[data-dock="right"] {
+        grid-row: 1 / -1;
+        writing-mode: vertical-rl;
+        padding: 12px 0;
+    }
+}
+
+/* --------------------------------------------------------------------------
  * Responsive: unter 900 px alles untereinander
  * ------------------------------------------------------------------------ */
 @media (max-width: 900px) {
     .layout { grid-template-columns: 1fr; }
     .overview-grid,
     .lobby-grid { grid-template-columns: 1fr; }
+
+    /* Spielmodus: Spiel zuerst, darunter die Lobby-Elemente kompakt */
+    .layout.game-mode {
+        grid-template-areas: "game" "lhead" "lchat" "lmem" "online" "global";
+    }
 }

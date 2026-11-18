@@ -8,6 +8,29 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.2.0] – 2026-11-18
+
+### Hinzugefügt
+- **Spielmodus:** Sobald der Host ein Spiel startet, werden die Lobby-Elemente kompakt an die
+  Seitenränder angedockt und das Spiel nutzt die volle Bildschirmhöhe in der Mitte.
+  - Links: Lobby-Kopf, Mitglieder, Einladungslink. Rechts: Lobby-Chat, Online-Liste, globaler Chat.
+  - Online-Liste und globaler Chat sind im Spielmodus eingeklappt und per Klick aufklappbar.
+  - Beide Leisten lassen sich per Schalter einklappen; der Zustand wird pro Browser gemerkt.
+  - Roter Hinweis-Punkt bei neuen Nachrichten in eingeklappten Bereichen.
+  - Unter 900 px Breite: Spiel oben, Lobby-Elemente darunter.
+  - Nach „Spiel beenden“ erscheint wieder die gewohnte Lobby-Ansicht.
+- UI-Tests für den Spielmodus (Anordnung, Einklappen, Hinweis-Punkte, Mobilansicht).
+
+### Geändert
+- Versionierungs-Ablauf in `dokumentation.md` (Abschnitt 11) auf den `_dev`-Ablauf aus
+  `README_claude-code.txt` umgestellt: Änderungen erfolgen in einer Kopie `_dev`, erst nach der
+  Freigabe wird `_stable` → `vX.Y.Z` und `_dev` → `_stable` umbenannt.
+
+### Getestet
+- Alle automatisierten Prüfungen bestanden (57 API, 4 Reconnect, 20 UI), Edge headless.
+
+---
+
 ## [0.1.0] – 2026-11-17
 
 Erste Version des Lobby-Systems. Der bisher eigenständige Risiko-Würfel ist jetzt

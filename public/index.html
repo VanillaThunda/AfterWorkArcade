@@ -114,7 +114,7 @@
             </div>
 
             <div class="lobby-grid">
-                <div class="card">
+                <div id="lobby-members-card" class="card">
                     <h3>Mitglieder</h3>
                     <ul id="member-list" class="member-list"></ul>
 
@@ -125,7 +125,7 @@
                     </div>
                 </div>
 
-                <div class="card chat-card">
+                <div id="lobby-chat-card" class="card chat-card">
                     <h3>Lobby-Chat</h3>
                     <div id="lobby-chat-messages" class="chat-messages" aria-live="polite"></div>
                     <form id="lobby-chat-form" class="form-inline" autocomplete="off">
@@ -141,13 +141,14 @@
     <!-- Seitenleiste: Online-User und globaler Chat (nach dem Login sichtbar) -->
     <!-- ===================================================================== -->
     <aside id="sidebar" class="sidebar" hidden>
-        <div class="card">
-            <h3>Online (<span id="online-count">0</span>)</h3>
+        <!-- Die Überschriften sind Buttons: im Spielmodus lassen sich die Bereiche einklappen. -->
+        <div id="online-card" class="card collapsible" data-section="online">
+            <h3><button type="button" class="section-toggle" aria-expanded="true"><span>Online (<span id="online-count">0</span>)</span><span class="dock-badge" hidden></span></button></h3>
             <ul id="online-list" class="online-list"></ul>
         </div>
 
-        <div class="card chat-card">
-            <h3>Globaler Chat</h3>
+        <div id="global-chat-card" class="card chat-card collapsible" data-section="global">
+            <h3><button type="button" class="section-toggle" aria-expanded="true"><span>Globaler Chat</span><span class="dock-badge" hidden></span></button></h3>
             <div id="global-chat-messages" class="chat-messages" aria-live="polite"></div>
             <form id="global-chat-form" class="form-inline" autocomplete="off">
                 <input id="global-chat-input" maxlength="300" placeholder="Nachricht an alle …">
@@ -155,6 +156,14 @@
             </form>
         </div>
     </aside>
+
+    <!-- Schalter zum Ein-/Ausklappen der angedockten Leisten (nur im Spielmodus sichtbar) -->
+    <button type="button" class="dock-toggle button-secondary" data-dock="left" aria-expanded="true">
+        <span class="dock-label">« Lobby</span><span class="dock-badge" hidden></span>
+    </button>
+    <button type="button" class="dock-toggle button-secondary" data-dock="right" aria-expanded="true">
+        <span class="dock-label">Chats »</span><span class="dock-badge" hidden></span>
+    </button>
 </div>
 
 <!-- Passwort-Abfrage beim Beitritt zu geschützten Lobbys -->

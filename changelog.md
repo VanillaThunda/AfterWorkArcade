@@ -8,6 +8,21 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.3.1] – 2026-11-18
+
+### Behoben
+- Der Browser bietet nach Eingabe eines Lobby-Passworts nicht mehr an, es zu speichern.
+  Die beiden Passwortfelder (Lobby erstellen, Beitritts-Dialog) sind keine Browser-Passwortfelder
+  mehr; die Eingabe wird per CSS (`-webkit-text-security`) verdeckt. Zusätzlich werden
+  Passwort-Manager-Erweiterungen per `data-1p-ignore` / `data-lpignore` ferngehalten.
+  Browser ohne diese CSS-Eigenschaft erhalten automatisch wieder ein echtes Passwortfeld.
+
+### Getestet
+- Alle automatisierten Prüfungen bestanden (63 API, 23 Revierkampf, 4 Reconnect, 27 UI),
+  inkl. neuer Prüfung „kein Browser-Passwortfeld, Eingabe verdeckt“.
+
+---
+
 ## [0.3.0] – 2026-11-18
 
 ### Hinzugefügt

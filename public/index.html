@@ -66,7 +66,11 @@
                         </select>
 
                         <label for="create-lobby-password">Passwort (optional)</label>
-                        <input id="create-lobby-password" name="password" type="password" maxlength="50" autocomplete="new-password">
+                        <!-- Bewusst kein type="password": sonst bietet der Browser an, das
+                             (nur temporäre) Lobby-Passwort zu speichern. Verdeckt wird per CSS
+                             (.masked-input), Fallback für alte Browser in main.js. -->
+                        <input id="create-lobby-password" name="password" type="text" class="masked-input" maxlength="50"
+                               autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
 
                         <button type="submit">Lobby erstellen</button>
                     </form>
@@ -171,7 +175,9 @@
     <form method="dialog" class="form">
         <h3>Passwort erforderlich</h3>
         <p class="muted">Diese Lobby ist passwortgeschützt.</p>
-        <input id="password-dialog-input" type="password" maxlength="50" aria-label="Passwort" autocomplete="off">
+        <!-- Bewusst kein type="password" (siehe Lobby erstellen) -->
+        <input id="password-dialog-input" type="text" class="masked-input" maxlength="50" aria-label="Passwort"
+               autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
         <div class="dialog-buttons">
             <!-- Erster Button = Standard bei Enter -->
             <button value="ok">Beitreten</button>

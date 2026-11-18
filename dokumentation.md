@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.3.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.3.1 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -424,6 +424,11 @@ Alle Einstellungen stehen in `server/config.js`:
 - **Keine Accounts:** Usernamen sind nur während der Sitzung reserviert.
 - **Keine Persistenz:** Ein Neustart löscht alle Lobbys, Chats und Spielstände.
 - Lobby-Passwörter werden nur als scrypt-Hash gespeichert.
+- Lobby-Passwörter sind nur für eine temporäre Lobby gedacht – der Browser soll sie nicht speichern.
+  Die Eingabefelder sind deshalb bewusst **kein** `type="password"`, sondern Textfelder mit
+  CSS-Verdeckung (Klasse `masked-input`, `-webkit-text-security: disc`). So erscheint kein
+  „Passwort speichern?“-Dialog. Browser ohne diese CSS-Eigenschaft bekommen automatisch ein
+  echtes Passwortfeld (`ensureMaskedInputs()` in `public/js/main.js`).
 - Chat-Texte und Namen werden im Browser nur als Text eingefügt (Schutz vor XSS).
 - Statische Dateien werden nur aus `public/` bzw. `games/<id>/public/` ausgeliefert.
 - Die Zwischenablage-Funktion („Kopieren“) braucht im Browser eigentlich HTTPS; über `http://`

@@ -238,6 +238,14 @@ await test("Globaler Chat (HTML wird als Text angezeigt)", async () => {
 
 section("Lobbys");
 
+await test("Passwortfelder verdeckt, aber kein Browser-Passwortfeld (kein Speichern-Dialog)", async () => {
+    assert.equal(await anna.eval(`return document.querySelectorAll('input[type="password"]').length;`), 0);
+    for (const id of ["create-lobby-password", "password-dialog-input"]) {
+        const masked = await anna.eval(`return getComputedStyle(document.getElementById("${id}")).webkitTextSecurity;`);
+        assert.equal(masked, "disc", `${id} verdeckt`);
+        assert.equal(await anna.eval(`return document.getElementById("${id}").autocomplete;`), "off");
+    }
+});
 await test("Anna erstellt offene Lobby mit Passwort", async () => {
     await anna.fill("#create-lobby-name", "Freitagsrunde");
     await anna.fill("#create-lobby-password", "geheim");

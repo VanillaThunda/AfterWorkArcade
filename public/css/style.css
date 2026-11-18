@@ -153,6 +153,10 @@ select {
     color: var(--color-text);
 }
 
+/* Verdeckte Eingabe für Lobby-Passwörter – ohne type="password",
+   damit der Browser nicht anbietet, das Passwort zu speichern. */
+.masked-input { -webkit-text-security: disc; }
+
 input:focus,
 select:focus {
     outline: 2px solid var(--color-primary);

@@ -305,7 +305,18 @@ async function loadServerInfo() {
     }
 }
 
+/**
+ * Lobby-Passwortfelder sind bewusst type="text" mit CSS-Verdeckung, damit der
+ * Browser nicht anbietet, sie zu speichern. Kann ein (alter) Browser per CSS
+ * nicht verdecken, wird zur Sicherheit wieder ein echtes Passwortfeld verwendet.
+ */
+function ensureMaskedInputs() {
+    if (CSS.supports("-webkit-text-security", "disc")) return;
+    for (const input of document.querySelectorAll(".masked-input")) input.type = "password";
+}
+
 async function init() {
+    ensureMaskedInputs();
     document.getElementById("logout-button").addEventListener("click", logout);
 
     // Einladungscode aus der URL merken und die URL aufräumen.

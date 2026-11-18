@@ -235,10 +235,16 @@ function listPublicSummaries() {
         .map(toSummary);
 }
 
+/** Alle Lobbys (auch private) – z. B. für den Spiel-Takt. */
+function listAll() {
+    return [...lobbies.values()];
+}
+
 module.exports = {
     VISIBILITY,
     createLobby,
     getById,
+    listAll,
     findByCode,
     verifyPassword,
     assertHasSpace,

@@ -308,6 +308,69 @@ await test("Host beendet Spiel → game-state null", async () => {
 });
 
 // ===========================================================================
+section("Spiel: Revierkampf (Echtzeit mit tick)");
+// ===========================================================================
+const gameAction = (action, token) => call("POST", "/api/game/action", { action }, token);
+
+await test("Revierkampf in der Spieleliste", async () => {
+    const { games } = (await call("GET", "/api/games")).data;
+    assert.ok(games.some(game => game.id === "revierkampf" && game.name === "Revierkampf"));
+});
+await test("Start → Setup-Phase mit Mitgliedern", async () => {
+    const stateEvent = streamBen.next(e => e.type === "game-state" && e.data?.gameId === "revierkampf", "Revierkampf-Zustand");
+    assert.equal((await call("POST", "/api/game/select", { gameId: "revierkampf" }, anna.token)).status, 200);
+    const state = (await stateEvent).data.state;
+    assert.equal(state.phase, "setup");
+    assert.ok(state.members.some(m => m.name === "Ben"));
+});
+await test("Nur der Host darf Bots einstellen (Host-Info aus dem Kontext)", async () => {
+    const r = await gameAction({ type: "settings", bots: 2 }, ben.token);
+    assert.equal(r.status, 400);
+    assert.match(r.data.error, /Host/);
+    const stateEvent = streamBen.next(e => e.type === "game-state" && e.data?.state.settings.bots === 2, "Bots = 2");
+    assert.equal((await gameAction({ type: "settings", bots: 2 }, anna.token)).status, 200);
+    await stateEvent;
+});
+await test("Rundenstart: Ticker schickt den Countdown ohne weitere Aktion", async () => {
+    const spawnEvent = streamBen.next(e => e.type === "game-state" && e.data?.state.phase === "spawn", "Startphase");
+    assert.equal((await gameAction({ type: "start" }, anna.token)).status, 200);
+    const start = (await spawnEvent).data.state;
+    assert.equal(start.players.filter(p => p.bot).length, 2);
+
+    // Nach ca. 1 s muss der Server von selbst einen neuen Countdown-Stand schicken.
+    const tickEvent = await streamBen.next(
+        e => e.type === "game-state" && e.data?.state.spawnSecondsLeft < start.spawnSecondsLeft, "Tick-Update", 2500);
+    assert.equal(tickEvent.data.state.phase, "spawn");
+});
+await test("Startpunkt per API setzen, Wasser → 400", async () => {
+    const { state } = streamBen.events.filter(e => e.type === "game-state" && e.data).at(-1).data;
+    const water = state.grid.indexOf("~");
+    const waterResult = await gameAction({ type: "spawn", x: water % state.width, y: Math.floor(water / state.width) }, ben.token);
+    assert.equal(waterResult.status, 400);
+
+    // Gültiges Feld weit weg von den Bots suchen
+    const botSpawns = state.players.filter(p => p.spawn).map(p => p.spawn);
+    let spot = null;
+    for (let i = 0; i < state.grid.length && !spot; i++) {
+        const x = i % state.width;
+        const y = Math.floor(i / state.width);
+        if (state.grid[i] === "." && botSpawns.every(s => Math.hypot(s.x - x, s.y - y) > 15)) spot = { x, y };
+    }
+    const stateEvent = streamAnna.next(e => e.type === "game-state" && e.data?.state.players.find(p => p.name === "Ben")?.spawn, "Bens Startpunkt");
+    assert.equal((await gameAction({ type: "spawn", ...spot }, ben.token)).status, 200);
+    assert.deepEqual((await stateEvent).data.state.players.find(p => p.name === "Ben").spawn, spot);
+});
+await test("Spiel beenden → keine Ticks mehr", async () => {
+    const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
+    await call("POST", "/api/game/end", {}, anna.token);
+    await ended;
+    const countBefore = streamBen.events.length;
+    await sleep(1200);
+    const later = streamBen.events.slice(countBefore).filter(e => e.type === "game-state");
+    assert.equal(later.length, 0, "keine game-state-Events nach Spielende");
+});
+
+// ===========================================================================
 section("Host-Wechsel, Lobby löschen, Beitritt per Code");
 // ===========================================================================
 await test("Host verlässt Lobby → Ben wird Host", async () => {

@@ -259,7 +259,7 @@ function handleSelectGame({ user, body }) {
     const players = lobby.memberIds.map(id => users.toPublicUser(users.getById(id)));
     let initialState;
     try {
-        initialState = plugin.createState({ players });
+        initialState = plugin.createState({ players, hostId: lobby.hostId, now: Date.now() });
     } catch (err) {
         console.error(`[Spiele] Fehler in ${plugin.meta.id}.createState:`, err);
         throw new HttpError(500, "Das Spiel konnte nicht gestartet werden.");
@@ -300,7 +300,10 @@ function handleGameAction({ user, body }) {
 
     let newState;
     try {
-        newState = plugin.handleAction(lobby.game.state, action, users.toPublicUser(user));
+        newState = plugin.handleAction(lobby.game.state, action, users.toPublicUser(user), {
+            hostId: lobby.hostId,
+            now: Date.now()
+        });
     } catch (err) {
         // Spiele melden ungültige Aktionen per throw new Error("…").
         // Die Meldung wird dem Spieler direkt angezeigt.

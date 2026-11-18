@@ -8,6 +8,33 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.3.0] – 2026-11-18
+
+### Hinzugefügt
+- **Neues Spiel „Revierkampf“** – Echtzeit-Gebietseroberung auf einer Zufallskarte mit Seen:
+  - Vorbereitung durch den Host (0–8 Bots), Startphase von 10 s mit frei wählbarem Startpunkt.
+  - Truppen wachsen ständig; Angriffe mit einstellbarer Stärke (10–100 %) erobern Feld für Feld
+    neutrales Land oder gegnerische Gebiete. Gegenseitige Angriffe heben sich auf.
+  - Einfache Bots, Rangliste, Ereignis-Log, Sieg bei 70 % des Landes oder als Letzter.
+  - Canvas-Darstellung mit Namen und Truppen je Revier, passt sich Spielmodus und Handy an.
+- **Spiel-Takt für Echtzeitspiele:** Spiele können optional `tick(state, { now, dtMs, hostId })`
+  und `meta.tickMs` angeben (`server/game-ticker.js`, ein gemeinsamer Timer für alle Lobbys).
+- Spiele erhalten zusätzliche Infos: `createState({ players, hostId, now })` und
+  `handleAction(state, action, player, { hostId, now })` – z. B. für Host-Einstellungen.
+  Bestehende Spiele funktionieren unverändert.
+- Tests: `tests/revierkampf.test.mjs` (23 Prüfungen), Revierkampf und Spiel-Takt im API-Test,
+  eine Revierkampf-Runde im UI-Test; `npm run test:revierkampf`.
+
+### Geändert
+- Vorlage `games/_vorlage` und Dokumentation (Abschnitt 7) um `tick` und den Kontext-Parameter ergänzt.
+- Dokumentation: Abschnitt 8 beschreibt jetzt beide Spiele.
+
+### Getestet
+- Alle automatisierten Prüfungen bestanden (63 API, 23 Revierkampf, 4 Reconnect, 26 UI), Edge headless.
+- Lasttest Revierkampf mit 16 Teilnehmern: Ø ca. 2 ms pro Tick, Zustand ≤ 16 KB.
+
+---
+
 ## [0.2.0] – 2026-11-18
 
 ### Hinzugefügt

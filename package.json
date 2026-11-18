@@ -1,12 +1,13 @@
 {
     "name": "afterwork-arcade",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Lobby-System für Multiplayer-Spiele und -Tools im lokalen Netzwerk",
     "main": "server.js",
     "private": true,
     "scripts": {
         "start": "node server.js",
         "test": "node tests/api.test.mjs",
+        "test:revierkampf": "node tests/revierkampf.test.mjs",
         "test:reconnect": "node tests/reconnect.test.mjs",
         "test:ui": "node tests/ui.test.mjs",
         "test:all": "node tests/run-all.mjs"

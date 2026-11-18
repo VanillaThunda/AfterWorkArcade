@@ -1,10 +1,11 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.2.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.3.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
-und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**.
+und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel** und das
+Echtzeit-Strategiespiel **Revierkampf**.
 
 ---
 
@@ -17,7 +18,7 @@ und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel*
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Risiko-Würfel](#8-risiko-würfel)
+8. [Spiele: Risiko-Würfel und Revierkampf](#8-spiele-risiko-würfel-und-revierkampf)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung (Ordner-basiert)](#11-versionierung-ordner-basiert)
@@ -38,8 +39,9 @@ node server.js          # alternativ: npm start
 Die Startmeldung zeigt die erreichbaren Adressen, z. B.:
 
 ```
+[Spiele] Geladen: Revierkampf (revierkampf)
 [Spiele] Geladen: Risiko-Würfel (risiko-wuerfel)
-AfterWork Arcade läuft auf Port 3000
+AfterWork Arcade v0.3.0 läuft auf Port 3000
   Lokal:    http://localhost:3000
   Netzwerk: http://192.168.1.20:3000
 ```
@@ -138,15 +140,19 @@ _stable/
 │  ├─ lobbies.js           Lobbys, Mitglieder, Host, Codes, Passwörter
 │  ├─ chat.js              globaler und Lobby-Chat inkl. Verlauf
 │  ├─ game-registry.js     lädt die Spiele aus games/
+│  ├─ game-ticker.js       Spiel-Takt für Echtzeitspiele (ruft tick() auf)
 │  ├─ sync.js              welches Event geht an wen
 │  ├─ network.js           LAN-Adressen des Servers
 │  └─ api.js               API-Endpunkte und Ablauflogik
 ├─ tests/                  automatisierte Tests (siehe Abschnitt 12)
 ├─ games/
 │  ├─ _vorlage/            Kopiervorlage für neue Spiele (wird nicht geladen)
-│  └─ risiko-wuerfel/
-│     ├─ game.js           Server-Teil (Regeln, Zustand)
-│     └─ public/           Browser-Teil (client.js, style.css)
+│  ├─ risiko-wuerfel/
+│  │  ├─ game.js           Server-Teil (Regeln, Zustand)
+│  │  └─ public/           Browser-Teil (client.js, style.css)
+│  └─ revierkampf/
+│     ├─ game.js           Server-Teil (Karte, Truppen, Angriffe, Bots, tick)
+│     └─ public/           Browser-Teil (Canvas-Darstellung, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -251,21 +257,37 @@ module.exports = {
         name: "Quiz",            // Pflicht, Anzeigename
         description: "…",        // optional
         minPlayers: 2,           // optional (Standard 1)
-        maxPlayers: 8            // optional (Standard unbegrenzt)
+        maxPlayers: 8,           // optional (Standard unbegrenzt)
+        tickMs: 200              // optional, nur mit tick(): Takt in ms (Standard 200, min. 50)
     },
 
-    // Pflicht: Startzustand. context.players = [{ id, name }]
+    // Pflicht: Startzustand.
+    // context = { players: [{ id, name }], hostId, now }
     createState(context) { return { ... }; },
 
-    // Pflicht: Aktion verarbeiten → neuen Zustand zurückgeben.
+    // Pflicht: Aktion verarbeiten → neuen Zustand zurückgeben
+    // (undefined = nichts geändert, es wird nichts verteilt).
     // Ungültige Aktion → throw new Error("Meldung für den Spieler")
-    handleAction(state, action, player) { return { ...state }; },
+    // context = { hostId, now } – z. B. für Host-Rechte: player.id === context.hostId
+    handleAction(state, action, player, context) { return { ...state }; },
 
     // Optional: Spieler kommt/geht während des Spiels → neuer Zustand oder undefined
     onPlayerJoin(state, player) {},
-    onPlayerLeave(state, player) {}
+    onPlayerLeave(state, player) {},
+
+    // Optional für Echtzeitspiele: wird alle meta.tickMs vom Server aufgerufen,
+    // solange das Spiel läuft. context = { now, dtMs, hostId }
+    // Rückgabe: neuer Zustand (wird an alle verteilt) oder undefined (nichts senden).
+    tick(state, context) {}
 };
 ```
+
+**Echtzeitspiele (`tick`)**: Der Spiel-Takt (`server/game-ticker.js`) ist ein einziger Timer
+für alle Lobbys. Er ruft `tick()` nur für Lobbys auf, in denen ein Spiel mit `tick` läuft; endet
+das Spiel oder wird die Lobby gelöscht, hört der Takt automatisch auf. Weil bei jeder Rückgabe
+der gesamte Zustand an alle geht, sollte `tick` nur dann einen Zustand liefern, wenn sich wirklich
+etwas geändert hat, und der Zustand kompakt bleiben (Revierkampf speichert seine Karte z. B. als
+Text mit einem Zeichen pro Feld, ca. 13 KB).
 
 Wichtig:
 - Der Zustand muss sich als **JSON** übertragen lassen (keine Funktionen, Maps, Klassen).
@@ -298,7 +320,9 @@ Wichtig:
 
 ---
 
-## 8. Risiko-Würfel
+## 8. Spiele: Risiko-Würfel und Revierkampf
+
+### 8.1 Risiko-Würfel
 
 Ablauf einer Runde:
 
@@ -317,6 +341,58 @@ Aktionen (`POST /api/game/action`):
 |--------|----------|
 | Würfeln | `{ "type": "roll", "side": "attacker", "count": 3 }` |
 | Neue Runde | `{ "type": "new-round" }` |
+
+### 8.2 Revierkampf
+
+Echtzeit-Gebietseroberung auf einer zufälligen Karte (144 × 90 Felder) mit Seen.
+Für 1–8 Spieler plus 0–8 Bots (höchstens 16 Teilnehmer).
+
+**Ablauf**
+
+1. **Vorbereitung:** Der Host wählt die Anzahl der Bots und klickt „Runde starten“.
+   Es braucht mindestens 2 Teilnehmer (z. B. 1 Spieler + 1 Bot).
+2. **Startphase (10 s):** Jeder klickt auf die Karte, um seinen Startpunkt zu setzen (er lässt sich
+   bis zum Ende der Startphase versetzen). Startpunkte müssen an Land liegen und mindestens
+   10 Felder voneinander entfernt sein. Wer nicht klickt, bekommt einen zufälligen Platz.
+   Jeder startet mit einem kleinen runden Revier und 150 Truppen.
+3. **Runde:**
+   - Truppen wachsen ständig: `1 + Felder × 0,03 + Truppen × 0,4 %` pro Takt (200 ms),
+     höchstens bis `100 + Felder × 12`. Größere Reviere wachsen also schneller und können mehr Truppen halten.
+   - **Angreifen:** Den Regler „Angriffsstärke“ (10–100 %) einstellen und auf ein **benachbartes**
+     Gebiet klicken (neutrales Land oder einen Gegner). Der Anteil der Truppen wird losgeschickt und
+     erobert Feld für Feld, bis er aufgebraucht ist. Ein erneuter Klick auf dasselbe Ziel verstärkt
+     den laufenden Angriff.
+   - Ein neutrales Feld kostet 2 Truppen. Ein gegnerisches kostet `2 + Dichte × 1,2`
+     (Dichte = Truppen ÷ Felder des Gegners); der Gegner verliert dabei pro Feld seine Dichte an Truppen.
+     Gut gefüllte Reviere sind also teuer zu erobern.
+   - Greifen sich zwei Spieler gleichzeitig gegenseitig an, heben sich die Angriffe zuerst auf.
+   - Klicks auf Wasser oder das eigene Gebiet werden ignoriert.
+4. **Ende:** Wer **70 % des Landes** besitzt oder als **Letzter** übrig bleibt, gewinnt.
+   Die Runde endet auch, wenn kein menschlicher Spieler mehr übrig ist. Danach kann der Host
+   eine neue Runde starten (neue Karte).
+
+**Bots** prüfen etwa jede Sekunde ihre Lage: Sobald sie mindestens 35 % ihres Truppen-Maximums
+haben, schicken sie 30–60 % ihrer Truppen los – bevorzugt ins neutrale Land, sonst gegen den
+Nachbarn mit der geringsten Dichte.
+
+**Später dazukommen / gehen:** Wer während der Startphase der Lobby beitritt, spielt noch mit;
+später Hinzugekommene schauen zu und sind in der nächsten Runde dabei. Wer die Lobby verlässt,
+scheidet aus, sein Gebiet wird neutral.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Bots einstellen | `{ "type": "settings", "bots": 3 }` | Host, Vorbereitung |
+| Runde starten | `{ "type": "start" }` | Host, Vorbereitung |
+| Startpunkt | `{ "type": "spawn", "x": 40, "y": 25 }` | Teilnehmer, Startphase |
+| Angriff | `{ "type": "attack", "x": 41, "y": 25, "percent": 50 }` | Teilnehmer, Runde |
+| Neue Runde | `{ "type": "new-round" }` | Host, nach Rundenende |
+
+Zustand (Auszug): `phase` (`setup`/`spawn`/`running`/`finished`), `grid` (Text, ein Zeichen pro
+Feld: `~` Wasser, `.` neutral, `A`–`P` Teilnehmer 1–16), `players` (Name, Farbe, Truppen, Felder,
+Bot ja/nein), `attacks`, `log` (letzte Ereignisse).
+Die Balance-Werte stehen als Konstanten oben in `games/revierkampf/game.js`.
 
 ---
 
@@ -393,10 +469,11 @@ Server auf Port 3000 stört also nicht.
 
 | Befehl                   | Datei                      | Dauer  | Prüft |
 |--------------------------|----------------------------|--------|-------|
-| `npm test`               | `tests/api.test.mjs`       | ~2 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Sicherheit der Dateiauslieferung |
+| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Sicherheit der Dateiauslieferung |
+| `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~20 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Mobilansicht und Konsolenfehlern |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~30 s  | alle drei nacheinander |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~40 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Mobilansicht und Konsolenfehlern |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~60 s  | alle vier nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.
@@ -410,6 +487,7 @@ Der Exit-Code ist `0`, wenn alles bestanden ist.
 **Hilfsfunktionen** (`tests/helpers.mjs`): `startServer`, `createTestRunner`, `apiCall`,
 `openEventStream`. Für ein neues Spiel kann ein eigener Test nach dem Muster von
 `api.test.mjs` angelegt werden – Spiellogik lässt sich auch direkt testen, indem man
-`games/<id>/game.js` per `require` lädt und `handleAction` aufruft.
+`games/<id>/game.js` per `require` lädt und `handleAction` bzw. `tick` aufruft
+(Beispiel: `tests/revierkampf.test.mjs`).
 
 > Für den Betrieb (z. B. auf der Synology) wird der Ordner `tests/` nicht benötigt.

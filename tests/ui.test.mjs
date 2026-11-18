@@ -277,6 +277,8 @@ await test("Lobby-Chat erscheint nicht im globalen Chat", async () => {
 section("Risiko-Würfel");
 
 await test("Host startet Spiel → lädt bei beiden", async () => {
+    assert.equal(await anna.eval(`return document.querySelectorAll("#game-select option").length;`), 2, "2 Spiele zur Auswahl");
+    await anna.eval(`document.getElementById("game-select").value = "risiko-wuerfel";`);
     await anna.click("#start-game-button");
     await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");
     await ben.waitFor(`document.querySelector(".rw")`, "Spiel bei Ben");
@@ -378,6 +380,89 @@ await test("Host beendet Spiel → beide zurück in der Lobby-Ansicht", async ()
     }
     assert.equal(await anna.visible("#global-chat-messages"), true, "globaler Chat wieder sichtbar");
     assert.equal(await anna.visible('.dock-toggle[data-dock="left"]'), false, "Dock-Schalter ausgeblendet");
+});
+
+section("Revierkampf");
+
+/** Klickt auf eine Stelle der Karte (Anteile 0–1 von Breite/Höhe). */
+const clickMap = (page, fx, fy) => page.eval(`
+    const canvas = document.querySelector(".rk-canvas");
+    const r = canvas.getBoundingClientRect();
+    canvas.dispatchEvent(new MouseEvent("click", { bubbles: true,
+        clientX: r.left + r.width * ${fx}, clientY: r.top + r.height * ${fy} }));`);
+
+/** Zahl der eigenen Felder aus der Statusleiste. */
+const ownCells = page => page.eval(`
+    const m = document.querySelector(".rk-stats")?.textContent.match(/(\\d+) Felder/);
+    return m ? Number(m[1]) : -1;`);
+
+await test("Host startet Revierkampf → Setup bei beiden", async () => {
+    await anna.eval(`document.getElementById("game-select").value = "revierkampf";`);
+    await anna.click("#start-game-button");
+    await anna.waitFor(`document.querySelector('.rk[data-phase="setup"] .rk-start')`, "Setup mit Start-Button bei Anna");
+    await ben.waitFor(`document.querySelector('.rk[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".rk-start") === null;`), true, "Ben hat keinen Start-Button");
+    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/revierkampf/style.css"]').length;`), 1);
+});
+await test("Bots einstellen und Runde starten", async () => {
+    await anna.eval(`const s = document.querySelector(".rk-bots"); s.value = "2"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".rk-overlay").textContent.includes("Bots: 2")`, "Bens Anzeige: 2 Bots");
+    await anna.click(".rk-start");
+    await anna.waitFor(`document.querySelector('.rk[data-phase="spawn"]')`, "Startphase");
+    await ben.waitFor(`document.querySelector(".rk-banner")?.textContent.includes("Startpunkt")`, "Hinweis bei Ben");
+});
+await test("Beide wählen per Klick einen Startpunkt", async () => {
+    const spots = [[0.2, 0.3], [0.8, 0.7], [0.5, 0.5], [0.3, 0.8], [0.7, 0.2], [0.1, 0.6], [0.9, 0.4], [0.4, 0.15], [0.6, 0.85]];
+    for (const [page, order] of [[anna, spots], [ben, [...spots].reverse()]]) {
+        for (const [fx, fy] of order) {
+            if (await page.eval(`return document.querySelector(".rk-banner").textContent.includes("gesetzt");`)) break;
+            await clickMap(page, fx, fy);
+            await sleep(250);
+        }
+        await page.waitFor(`document.querySelector(".rk-banner").textContent.includes("gesetzt")`, "Startpunkt gesetzt");
+    }
+});
+await test("Runde startet nach dem Countdown, Karte und Rangliste sichtbar", async () => {
+    await anna.waitFor(`document.querySelector('.rk[data-phase="running"]')`, "Runde läuft", 14000);
+    assert.equal(await anna.eval(`return document.querySelectorAll(".rk-ranking li").length;`), 4, "2 Spieler + 2 Bots");
+    assert.equal(await anna.visible(".rk-slider"), true, "Regler sichtbar");
+    assert.ok(await ownCells(anna) > 0, "eigene Felder");
+    const canvas = await rectOf(anna, ".rk-canvas");
+    assert.ok(canvas.width > 700, `Karte nutzt die Breite (${canvas.width}px)`);
+
+    // Handy-Ansicht: Karte passt in die Breite, kein horizontales Scrollen
+    await ben.viewport(420, 900);
+    await sleep(300);
+    const overflow = await ben.eval(`return document.documentElement.scrollWidth - document.documentElement.clientWidth;`);
+    await ben.screenshot("08-revierkampf-mobil.png");
+    await ben.viewport(1400, 1000);
+    assert.ok(overflow <= 0, `horizontaler Überlauf: ${overflow}px`);
+});
+await test("Angriff per Klick vergrößert das eigene Revier", async () => {
+    const before = await ownCells(anna);
+    // Eigenes Feld anhand der Farbe auf dem Canvas finden (Anna = Spieler 0)
+    const own = await anna.eval(`
+        const canvas = document.querySelector(".rk-canvas");
+        const data = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
+        const cols = canvas.width / 8, rows = canvas.height / 8;
+        for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+            const p = ((y * 8 + 1) * canvas.width + x * 8 + 1) * 4;
+            if (data[p] === 219 && data[p + 1] === 24 && data[p + 2] === 71) return { x, y, cols, rows };
+        }
+        return null;`);
+    assert.ok(own, "eigenes Revier auf der Karte gefunden");
+    for (const [dx, dy] of [[5, 0], [-5, 0], [0, 5], [0, -5], [5, 5], [-5, -5]]) {
+        await clickMap(anna, (own.x + dx + 0.5) / own.cols, (own.y + dy + 0.5) / own.rows);
+    }
+    await anna.waitFor(`(() => { const m = document.querySelector(".rk-stats").textContent.match(/(\\d+) Felder/);
+        return m && Number(m[1]) > ${before} + 10; })()`, "Revier gewachsen", 5000);
+    await anna.screenshot("07-revierkampf.png");
+});
+await test("Host beendet Revierkampf → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".rk")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".rk")`, "Spiel weg bei Anna");
+    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/"]').length;`), 0);
 });
 
 section("Host-Wechsel und private Lobbys");

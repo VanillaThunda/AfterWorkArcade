@@ -41,6 +41,23 @@ function validatePlugin(plugin, folderName) {
     if (typeof plugin.createState !== "function" || typeof plugin.handleAction !== "function") {
         throw new Error("createState() und handleAction() müssen exportiert werden.");
     }
+    if (plugin.tick !== undefined && typeof plugin.tick !== "function") {
+        throw new Error("tick muss eine Funktion sein (oder ganz weggelassen werden).");
+    }
+    if (meta.tickMs !== undefined && !(Number.isFinite(meta.tickMs) && meta.tickMs >= MIN_TICK_MS)) {
+        throw new Error(`meta.tickMs muss eine Zahl ab ${MIN_TICK_MS} sein.`);
+    }
+}
+
+/** Kleinster erlaubter Takt für tick() in Millisekunden. */
+const MIN_TICK_MS = 50;
+
+/** Standard-Takt, wenn ein Spiel tick() hat, aber kein meta.tickMs angibt. */
+const DEFAULT_TICK_MS = 200;
+
+/** Takt eines Spiels in ms (nur sinnvoll, wenn es tick() hat). */
+function getTickMs(plugin) {
+    return plugin.meta.tickMs ?? DEFAULT_TICK_MS;
 }
 
 /**
@@ -99,5 +116,6 @@ module.exports = {
     loadGames,
     getGame,
     getPublicDir,
-    listGames
+    listGames,
+    getTickMs
 };

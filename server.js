@@ -20,6 +20,7 @@ const config = require("./server/config");
 const api = require("./server/api");
 const eventHub = require("./server/event-hub");
 const gameRegistry = require("./server/game-registry");
+const { startGameTicker } = require("./server/game-ticker");
 const { getLanUrls } = require("./server/network");
 const { version } = require("./package.json");
 const { sendError, sendText, serveStatic } = require("./server/http-utils");
@@ -74,6 +75,7 @@ async function handleRequest(req, res) {
 
 gameRegistry.loadGames(GAMES_DIR);
 eventHub.startHeartbeat(config.HEARTBEAT_INTERVAL_MS);
+startGameTicker();
 
 const server = http.createServer(handleRequest);
 

@@ -28,7 +28,7 @@ module.exports = {
 
     /**
      * Wird aufgerufen, wenn der Host das Spiel startet.
-     * @param {{players: {id: string, name: string}[]}} context
+     * @param {{players: {id: string, name: string}[], hostId: string, now: number}} context
      * @returns {object} Startzustand – muss sich als JSON übertragen lassen
      */
     createState({ players }) {
@@ -43,8 +43,10 @@ module.exports = {
      * Wird bei jeder Aktion eines Spielers aufgerufen.
      * - Gibt den NEUEN Zustand zurück → wird an alle Mitglieder verteilt.
      * - Wirft bei ungültigen Aktionen einen Error → Meldung erscheint beim Spieler.
+     * - context = { hostId, now }: z. B. für Aktionen, die nur der Host darf
+     *   (player.id === context.hostId).
      */
-    handleAction(state, action, player) {
+    handleAction(state, action, player, context) {
         if (action.type !== "click") {
             throw new Error("Unbekannte Aktion.");
         }
@@ -60,4 +62,13 @@ module.exports = {
     onPlayerLeave(state, player) {
         return { ...state, playerNames: state.playerNames.filter(name => name !== player.name) };
     }
+
+    // Optional für Echtzeitspiele: wird regelmäßig vom Server aufgerufen
+    // (Abstand meta.tickMs, Standard 200 ms). Rückgabe: neuer Zustand
+    // (wird an alle verteilt) oder undefined (= nichts geändert, nichts senden).
+    // Beispiel: games/revierkampf/game.js
+    //
+    // tick(state, { now, dtMs, hostId }) {
+    //     return { ...state, elapsedMs: (state.elapsedMs ?? 0) + dtMs };
+    // }
 };

@@ -19,8 +19,20 @@ const path = require("path");
 /** Erlaubte Zeichen für Spiel-IDs (werden Teil der URL). */
 const GAME_ID_PATTERN = /^[a-z0-9-]+$/;
 
-/** @type {Map<string, {plugin: object, publicDir: string}>} */
+/**
+ * Vorschaubild für die Spielauswahl: games/<id>/public/preview.<endung>.
+ * Gesucht wird in dieser Reihenfolge; empfohlen ist 16:10, z. B. 640×400 px.
+ */
+const PREVIEW_FILES = ["preview.webp", "preview.png", "preview.jpg", "preview.svg"];
+
+/** @type {Map<string, {plugin: object, publicDir: string, preview: string|null}>} */
 const games = new Map();
+
+/** URL des Vorschaubilds eines Spiels oder null, wenn keines vorhanden ist. */
+function findPreview(publicDir, gameId) {
+    const file = PREVIEW_FILES.find(name => fs.existsSync(path.join(publicDir, name)));
+    return file ? `/games/${gameId}/${file}` : null;
+}
 
 /**
  * Prüft, ob ein Spiel-Modul die Mindest-Schnittstelle erfüllt.
@@ -79,9 +91,11 @@ function loadGames(gamesDir) {
             const plugin = require(path.join(gameDir, "game.js"));
             validatePlugin(plugin, entry.name);
 
+            const publicDir = path.join(gameDir, "public");
             games.set(plugin.meta.id, {
                 plugin,
-                publicDir: path.join(gameDir, "public")
+                publicDir,
+                preview: findPreview(publicDir, plugin.meta.id)
             });
             console.log(`[Spiele] Geladen: ${plugin.meta.name} (${plugin.meta.id})`);
         } catch (err) {
@@ -104,15 +118,18 @@ function getPublicDir(gameId) {
     return games.get(gameId)?.publicDir ?? null;
 }
 
-/** Liste aller Spiele für die Auswahl im Client. */
+/** Liste aller Spiele für die Auswahl im Client (alphabetisch nach Name). */
 function listGames() {
-    return [...games.values()].map(({ plugin }) => ({
-        id: plugin.meta.id,
-        name: plugin.meta.name,
-        description: plugin.meta.description ?? "",
-        minPlayers: plugin.meta.minPlayers ?? 1,
-        maxPlayers: plugin.meta.maxPlayers ?? null
-    }));
+    return [...games.values()]
+        .map(({ plugin, preview }) => ({
+            id: plugin.meta.id,
+            name: plugin.meta.name,
+            description: plugin.meta.description ?? "",
+            minPlayers: plugin.meta.minPlayers ?? 1,
+            maxPlayers: plugin.meta.maxPlayers ?? null,
+            preview
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "de"));
 }
 
 module.exports = {

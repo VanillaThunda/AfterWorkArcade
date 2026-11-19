@@ -8,6 +8,25 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.6.0] – 2026-11-19
+
+### Hinzugefügt
+- **Spielauswahl als Kachel-Dialog:**
+  - Der Button „+ Spiel auswählen“ öffnet eine Übersicht aller Spiele. Jede Kachel zeigt ein Vorschaubild, den Titel, die Spielerzahl und eine kurze Beschreibung.
+  - Ein Spiel wählst du per „Auswählen“ aus und startest es mit „Spiel starten“. Ein Doppelklick auf eine Kachel startet es direkt.
+  - Spiele, die nicht zur aktuellen Spielerzahl passen, sind ausgegraut.
+  - Ab 7 Spielen erscheint ein Suchfeld.
+- **Vorschaubilder:** `games/<id>/public/preview.webp` (oder `.png`/`.jpg`/`.svg`, 16:10) wird automatisch erkannt. `GET /api/games` liefert dafür das neue Feld `preview`. Ohne Bild zeigt die Kachel einen Platzhalter.
+  - Für Risiko-Würfel, Revierkampf und Schocken liegen Screenshots der Spielfelder bei.
+- **`roadmap.md`** für geplante Funktionen und Ideen. Erster Eintrag: Spiel-Sessions mit mehreren Spielen nacheinander und einer Gesamt-Rangliste. Die Spielauswahl ist dafür intern bereits als Liste angelegt.
+
+### Geändert
+- Die Spieleliste ist alphabetisch sortiert.
+- Die Beschreibungen der Spiele sind auf 2–3 Sätze erweitert.
+- Neue CSS-Variable `--color-accent` (hell und dunkel) für ausgewählte Elemente.
+
+---
+
 ## [0.5.2] – 2026-11-19
 
 ### Geändert

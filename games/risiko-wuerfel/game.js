@@ -110,7 +110,7 @@ module.exports = {
     meta: {
         id: "risiko-wuerfel", // muss dem Ordnernamen entsprechen
         name: "Risiko-Würfel",
-        description: "Angreifer und Verteidiger würfeln – die Auswertung erfolgt automatisch nach Risiko-Regeln.",
+        description: "Würfelhelfer für Brettspiel-Abende: Angreifer und Verteidiger wählen ihre Würfelzahl und würfeln. Die Auswertung nach Risiko-Regeln erfolgt automatisch – alle sehen das Ergebnis sofort.",
         minPlayers: 1,
         maxPlayers: 8
     },

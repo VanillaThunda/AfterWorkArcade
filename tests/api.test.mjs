@@ -68,6 +68,18 @@ await test("Server-Info", async () => {
 await test("Spieleliste", async () => {
     const r = await call("GET", "/api/games");
     assert.ok(r.data.games.some(game => game.id === "risiko-wuerfel"));
+    const names = r.data.games.map(game => game.name);
+    assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, "de")), "alphabetisch sortiert");
+});
+await test("Spieleliste: Vorschaubilder werden ausgeliefert", async () => {
+    const { games } = (await call("GET", "/api/games")).data;
+    for (const game of games) {
+        assert.match(game.preview ?? "", /^\/games\/[a-z0-9-]+\/preview\.(webp|png|jpg|svg)$/, `Vorschau für ${game.id}`);
+        const response = await fetch(BASE + game.preview);
+        assert.equal(response.status, 200, `${game.preview} erreichbar`);
+        assert.match(response.headers.get("content-type"), /^image\//);
+        await response.arrayBuffer();
+    }
 });
 await test("Unbekannter Endpunkt → 404", async () => {
     assert.equal((await call("GET", "/api/xyz")).status, 404);

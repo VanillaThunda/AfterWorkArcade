@@ -23,6 +23,7 @@
     --color-secondary: #e0e0e0;
     --color-secondary-hover: #d0d0d0;
     --color-chat-bg: #fafafa;
+    --color-accent: #1976d2;
 
     --radius: 12px;
     --radius-small: 7px;
@@ -54,6 +55,7 @@
     --color-secondary: #2f343b;
     --color-secondary-hover: #3a4048;
     --color-chat-bg: #191c1f;
+    --color-accent: #64b5f6;
     --shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
 
     color-scheme: dark;
@@ -385,6 +387,135 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
     gap: 8px;
     justify-content: flex-end;
     margin-top: 8px;
+}
+
+/* --------------------------------------------------------------------------
+ * Spielauswahl (Kachel-Dialog, Logik: js/game-picker.js)
+ * ------------------------------------------------------------------------ */
+dialog.game-picker {
+    width: min(960px, calc(100vw - 32px));
+    max-width: none;
+    max-height: 88vh;
+    padding: 0;
+    /* Kopf und Fuß bleiben stehen, nur die Kacheln scrollen. */
+    flex-direction: column;
+}
+dialog.game-picker[open] { display: flex; }
+
+.game-picker-header,
+.game-picker-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+}
+.game-picker-header { border-bottom: 1px solid var(--color-border); }
+.game-picker-header h3 { margin: 0; }
+.game-picker-footer {
+    border-top: 1px solid var(--color-border);
+    flex-wrap: wrap;
+}
+.game-picker-footer .dialog-buttons { margin-top: 0; }
+
+.game-picker-close {
+    padding: 2px 10px;
+    font-size: 22px;
+    line-height: 1.2;
+}
+
+.game-picker-search {
+    margin: 14px 20px 0;
+    width: auto;
+}
+
+.game-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 16px 20px;
+    overflow-y: auto;
+    min-height: 0;
+}
+.game-picker-empty { padding: 0 20px; }
+
+.game-tile {
+    display: flex;
+    flex-direction: column;
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius);
+    background: var(--color-surface);
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+}
+.game-tile:hover:not(.is-unavailable) {
+    border-color: var(--color-muted);
+    box-shadow: var(--shadow);
+    transform: translateY(-2px);
+}
+.game-tile.is-selected,
+.game-tile.is-selected:hover {
+    border-color: var(--color-accent);
+    background: var(--color-highlight);
+    box-shadow: 0 0 0 2px var(--color-accent);
+}
+.game-tile.is-unavailable {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.game-tile-media {
+    aspect-ratio: 16 / 10;
+    background: var(--color-secondary);
+    border-bottom: 1px solid var(--color-border);
+}
+.game-tile-media img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.game-tile-placeholder {
+    display: grid;
+    place-items: center;
+    font-size: 56px;
+}
+
+.game-tile-body {
+    flex: 1;
+    padding: 12px 14px 4px;
+}
+.game-tile-title { margin: 0 0 4px; font-size: 18px; }
+.game-tile-players {
+    display: inline-block;
+    font-size: 13px;
+    color: var(--color-muted);
+}
+.game-tile-description {
+    margin: 8px 0 0;
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.game-tile-select {
+    margin: 10px 14px 14px;
+    white-space: normal;
+}
+.game-tile.is-selected .game-tile-select {
+    background: var(--color-accent);
+    color: #fff;
+}
+:root[data-theme="dark"] .game-tile.is-selected .game-tile-select { color: #0e1012; }
+
+@media (max-width: 600px) {
+    dialog.game-picker {
+        width: 100vw;
+        max-height: 100dvh;
+        height: 100dvh;
+        border-radius: 0;
+    }
+    .game-picker-grid { grid-template-columns: 1fr; }
 }
 
 .toast-container {

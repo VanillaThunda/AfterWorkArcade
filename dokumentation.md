@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.5.2 (siehe `package.json` und `changelog.md`)
+**Version:** 0.6.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -73,8 +73,16 @@ kopieren und dort per SSH `node server.js` ausführen.
 - **Lobby-Ansicht:** Mitglieder (👑 = Host), Einladungslink, Lobby-Chat und Spielbereich.
   Wurde die Seite über `localhost` geöffnet, enthält der Einladungslink automatisch die
   LAN-Adresse des Servers, damit andere Geräte ihn öffnen können.
-- **Spielsteuerung (nur Host):** Spiel auswählen → „Spiel starten“; „Spiel beenden“ führt
-  alle zurück in die Lobby-Ansicht.
+- **Spielsteuerung (nur Host):** „+ Spiel auswählen“ öffnet die **Spielauswahl** (siehe unten).
+  „Spiel beenden“ führt alle zurück in die Lobby-Ansicht.
+- **Spielauswahl:** Dialog mit einer Kachel pro Spiel (Logik in `public/js/game-picker.js`).
+  - Jede Kachel zeigt Vorschaubild, Titel, Spielerzahl und Beschreibung.
+  - „Auswählen“ markiert ein Spiel, „Spiel starten“ startet es für alle. Ein Doppelklick auf eine
+    Kachel startet direkt; Esc oder „Abbrechen“ schließt den Dialog.
+  - Spiele, die nicht zur aktuellen Spielerzahl passen, sind ausgegraut und nennen den Grund.
+  - Die Spiele sind alphabetisch sortiert. Ab 7 Spielen erscheint ein Suchfeld (Titel und Beschreibung).
+  - Die Auswahl wird intern als geordnete Liste geführt (`maxSelection`, derzeit 1). Das ist die
+    Vorbereitung für Spiel-Sessions mit mehreren Spielen, siehe `roadmap.md`.
 - **Spielmodus:** Solange ein Spiel läuft, rückt es in den Fokus. Die Lobby-Elemente werden
   kompakt an die Seitenränder angedockt:
   - **links:** Lobby-Kopf (Name, Code, „Lobby verlassen“), Mitglieder und Einladungslink,
@@ -137,6 +145,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 ├─ server.js               Einstiegspunkt: HTTP-Server und Routing
 ├─ package.json            Name, Version, Startskript (keine Abhängigkeiten)
 ├─ changelog.md            Änderungen je Version
+├─ roadmap.md              geplante Funktionen und Ideen für spätere Versionen
 ├─ dokumentation.md        diese Datei
 ├─ .gitignore / .gitattributes   ignorierte Dateien (z. B. tests/output), Zeilenenden LF
 ├─ .githooks/              Git-Hooks: pre-commit, pre-merge-commit (siehe Abschnitt 11)
@@ -160,7 +169,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ _vorlage/            Kopiervorlage für neue Spiele (wird nicht geladen)
 │  ├─ risiko-wuerfel/
 │  │  ├─ game.js           Server-Teil (Regeln, Zustand)
-│  │  └─ public/           Browser-Teil (client.js, style.css)
+│  │  └─ public/           Browser-Teil (client.js, style.css, preview.webp)
 │  ├─ revierkampf/
 │  │  ├─ game.js           Server-Teil (Karte, Truppen, Angriffe, Bots, tick)
 │  │  └─ public/           Browser-Teil (Canvas-Darstellung, client.js, style.css)
@@ -178,6 +187,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
       ├─ dock.js           Spielmodus: Andocken/Einklappen der Leisten, Hinweis-Punkte
       ├─ theme.js          Hell/Dunkel-Schalter (data-theme, Event awa-themechange)
       ├─ game-loader.js    lädt/entlädt den Client-Teil eines Spiels
+      ├─ game-picker.js    Spielauswahl-Dialog mit Kacheln
       └─ views/            login.js, lobby-list.js, lobby-room.js
 ```
 
@@ -193,7 +203,7 @@ Alle Antworten sind JSON. Erfolg: `{ "ok": true, ... }`, Fehler:
 | Methode | Pfad                 | Login | Body                                        | Beschreibung |
 |---------|----------------------|:-----:|---------------------------------------------|--------------|
 | GET     | `/api/info`          |  –    | –                                           | Version und LAN-Adressen → `{ version, lanUrls }` |
-| GET     | `/api/games`         |  –    | –                                           | Liste der verfügbaren Spiele |
+| GET     | `/api/games`         |  –    | –                                           | Spiele, alphabetisch → `{ games: [{ id, name, description, minPlayers, maxPlayers, preview }] }` (`preview`: Bild-URL oder `null`) |
 | POST    | `/api/login`         |  –    | `{ name }`                                  | Anmelden → `{ token, user }` |
 | GET     | `/api/me`            |  ✔    | –                                           | Prüft die Sitzung → `{ user }` |
 | POST    | `/api/logout`        |  ✔    | –                                           | Abmelden |
@@ -260,7 +270,12 @@ Ein Spiel besteht aus einem Ordner unter `games/`. **Am Lobby-System muss nichts
    und `meta.name` anpassen.
 3. Spiellogik in `createState()` und `handleAction()` schreiben.
 4. Darstellung in `games/quiz/public/client.js` anpassen.
-5. Server neu starten. In der Konsole erscheint `[Spiele] Geladen: Quiz (quiz)`, und das Spiel
+5. `meta.description` mit 1–3 Sätzen für die Kachel in der Spielauswahl füllen und ein
+   **Vorschaubild** als `games/quiz/public/preview.webp` ablegen.
+   - Ebenfalls möglich sind `.png`, `.jpg` oder `.svg`; gesucht wird in dieser Reihenfolge.
+   - Format 16:10, empfohlen 640×400 px. Die Kachel schneidet andere Formate mittig zu.
+   - Der Server erkennt das Bild beim Start. Ohne Bild zeigt die Kachel einen 🎲-Platzhalter.
+6. Server neu starten. In der Konsole erscheint `[Spiele] Geladen: Quiz (quiz)`, und das Spiel
    ist in jeder Lobby auswählbar.
 
 ### Server-Teil: `games/<id>/game.js`
@@ -270,7 +285,7 @@ module.exports = {
     meta: {
         id: "quiz",              // Pflicht, = Ordnername
         name: "Quiz",            // Pflicht, Anzeigename
-        description: "…",        // optional
+        description: "…",        // optional, 1–3 Sätze für die Spielauswahl
         minPlayers: 2,           // optional (Standard 1)
         maxPlayers: 8,           // optional (Standard unbegrenzt)
         tickMs: 200              // optional, nur mit tick(): Takt in ms (Standard 200, min. 50)
@@ -620,11 +635,11 @@ Server auf Port 3000 stört also nicht.
 
 | Befehl                   | Datei                      | Dauer  | Prüft |
 |--------------------------|----------------------------|--------|-------|
-| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
+| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Spieleliste (Sortierung, Vorschaubilder), Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
 | `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle sechs nacheinander |
 

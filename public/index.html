@@ -125,8 +125,7 @@
                 <div class="game-toolbar">
                     <h2 id="game-title">Kein Spiel ausgewählt</h2>
                     <div id="host-game-controls" class="form-inline" hidden>
-                        <select id="game-select" aria-label="Spiel auswählen"></select>
-                        <button id="start-game-button">Spiel starten</button>
+                        <button id="open-game-picker" type="button" aria-haspopup="dialog">+ Spiel auswählen</button>
                     </div>
                     <button id="end-game-button" class="button-danger" hidden>Spiel beenden</button>
                 </div>
@@ -201,6 +200,24 @@
             <button value="cancel" class="button-secondary" formnovalidate>Abbrechen</button>
         </div>
     </form>
+</dialog>
+
+<!-- Spielauswahl: Kachel-Übersicht aller Spiele (Logik: public/js/game-picker.js) -->
+<dialog id="game-picker" class="game-picker" aria-labelledby="game-picker-title">
+    <div class="game-picker-header">
+        <h3 id="game-picker-title">Spiel auswählen</h3>
+        <button type="button" class="game-picker-close button-secondary" data-action="cancel" aria-label="Schließen" title="Schließen">×</button>
+    </div>
+    <input type="search" class="game-picker-search" placeholder="Spiele durchsuchen …" aria-label="Spiele durchsuchen" hidden>
+    <div class="game-picker-grid"></div>
+    <p class="game-picker-empty muted" hidden>Kein Spiel gefunden.</p>
+    <div class="game-picker-footer">
+        <span class="game-picker-selection muted" aria-live="polite"></span>
+        <div class="dialog-buttons">
+            <button type="button" class="button-secondary" data-action="cancel">Abbrechen</button>
+            <button type="button" class="game-picker-start" data-action="start" disabled>Spiel starten</button>
+        </div>
+    </div>
 </dialog>
 
 <!-- Container für kurze Hinweise (Toasts) -->

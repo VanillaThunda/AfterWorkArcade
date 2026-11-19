@@ -13,7 +13,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-/** Projektordner (_stable), unabhängig davon, von wo aus der Test gestartet wird. */
+/** Projektordner (main\ bzw. dev\), unabhängig davon, von wo aus der Test gestartet wird. */
 export const PROJECT_ROOT = fileURLToPath(new URL("..", import.meta.url));
 
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));

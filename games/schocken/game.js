@@ -731,7 +731,7 @@ module.exports = {
     meta: {
         id: "schocken",
         name: "Schocken",
-        description: "Klassisches Kneipen-Würfelspiel: Schock Aus, General, Straße – wer am schlechtesten würfelt, kassiert Deckel.",
+        description: "Das klassische Kneipen-Würfelspiel mit Schock Aus, General und Straße. Bis zu drei Würfe pro Runde – wer am schlechtesten würfelt, kassiert Deckel. Auch mit Bots spielbar.",
         minPlayers: 1,
         maxPlayers: MAX_PARTICIPANTS,
         tickMs: 250

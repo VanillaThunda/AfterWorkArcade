@@ -613,7 +613,7 @@ module.exports = {
     meta: {
         id: "revierkampf",
         name: "Revierkampf",
-        description: "Echtzeit-Gebietseroberung: Revier ausbauen, Nachbarn angreifen, Karte beherrschen.",
+        description: "Echtzeit-Strategie um Gebiete: Baue dein Revier aus, schicke Truppen zu den Nachbarn und erobere die Karte. Wer 70 % des Landes hält, gewinnt.",
         minPlayers: 1,
         tickMs: 200
     },

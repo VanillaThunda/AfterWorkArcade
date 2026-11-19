@@ -8,6 +8,7 @@
  */
 
 import { GameHost } from "../game-loader.js";
+import { createGamePicker } from "../game-picker.js";
 import { showToast } from "../ui.js";
 
 const VISIBILITY_LABELS = { public: "Offen", private: "Privat" };
@@ -31,8 +32,7 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
         copyInviteButton: document.getElementById("copy-invite-button"),
         gameTitle: document.getElementById("game-title"),
         hostControls: document.getElementById("host-game-controls"),
-        gameSelect: document.getElementById("game-select"),
-        startGameButton: document.getElementById("start-game-button"),
+        openPickerButton: document.getElementById("open-game-picker"),
         endGameButton: document.getElementById("end-game-button"),
         gamePlaceholder: document.getElementById("game-placeholder"),
         gameContainer: document.getElementById("game-container")
@@ -40,14 +40,24 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
 
     const gameHost = new GameHost(elements.gameContainer, createGameContext);
 
+    // Aktuell wird genau ein Spiel gestartet; die Liste ist für spätere
+    // Spiel-Sessions mit mehreren Spielen vorbereitet (siehe roadmap.md).
+    const gamePicker = createGamePicker({
+        dialog: document.getElementById("game-picker"),
+        onConfirm: gameIds => onSelectGame(gameIds[0])
+    });
+
     /** Basis-Adresse für Einladungslinks (siehe setInviteBaseUrl). */
     let inviteBaseUrl = location.origin;
+
+    /** Zuletzt dargestellte Lobby (für die Spielerzahl in der Spielauswahl). */
+    let currentLobby = null;
 
     // --- Event-Listener -----------------------------------------------------
     elements.leaveButton.addEventListener("click", onLeave);
     elements.endGameButton.addEventListener("click", onEndGame);
-    elements.startGameButton.addEventListener("click", () => {
-        if (elements.gameSelect.value) onSelectGame(elements.gameSelect.value);
+    elements.openPickerButton.addEventListener("click", () => {
+        gamePicker.open({ playerCount: currentLobby?.members.length ?? 1 });
     });
     elements.copyInviteButton.addEventListener("click", copyInviteLink);
 
@@ -89,6 +99,9 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
         elements.hostControls.hidden = !isHost || Boolean(game);
         elements.endGameButton.hidden = !isHost || !game;
 
+        // Spiel läuft inzwischen oder Host-Rolle verloren → Auswahl schließen.
+        if (game || !isHost) gamePicker.close();
+
         if (game) {
             elements.gamePlaceholder.hidden = true;
             gameHost.show(game.id);
@@ -96,7 +109,7 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
             gameHost.clear();
             elements.gamePlaceholder.hidden = false;
             elements.gamePlaceholder.textContent = isHost
-                ? "Wähle ein Spiel aus und starte es für alle in der Lobby."
+                ? "Wähle über „+ Spiel auswählen“ ein Spiel aus und starte es für alle in der Lobby."
                 : "Warte darauf, dass der Host ein Spiel startet …";
         }
     }
@@ -109,19 +122,13 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
 
         /** Füllt die Spielauswahl (einmalig nach dem Laden der Spieleliste). */
         setGames(games) {
-            const options = games.map(game => {
-                const option = document.createElement("option");
-                option.value = game.id;
-                option.textContent = game.name;
-                option.title = game.description;
-                return option;
-            });
-            elements.gameSelect.replaceChildren(...options);
-            elements.startGameButton.disabled = games.length === 0;
+            gamePicker.setGames(games);
+            elements.openPickerButton.disabled = games.length === 0;
         },
 
         /** Stellt die Lobby dar. */
         render(lobby, me) {
+            currentLobby = lobby;
             elements.name.textContent = lobby.name;
             elements.code.textContent = lobby.code;
             elements.visibility.textContent = VISIBILITY_LABELS[lobby.visibility] ?? lobby.visibility;
@@ -139,6 +146,8 @@ export function createLobbyRoomView({ onLeave, onSelectGame, onEndGame, createGa
 
         /** Lobby verlassen – Spiel entladen. */
         reset() {
+            gamePicker.close();
+            currentLobby = null;
             gameHost.clear();
         }
     };

@@ -319,10 +319,58 @@ await test("Lobby-Chat erscheint nicht im globalen Chat", async () => {
 
 section("Risiko-Würfel");
 
+/** Startet ein Spiel über den Auswahl-Dialog („+ Spiel auswählen“ → Kachel → „Spiel starten“). */
+async function startGame(page, gameId) {
+    await page.click("#open-game-picker");
+    await page.waitFor(`document.getElementById("game-picker").open`, "Spielauswahl offen");
+    await page.click(`.game-tile[data-game-id="${gameId}"] .game-tile-select`);
+    await page.click(".game-picker-start");
+    await page.waitFor(`!document.getElementById("game-picker").open`, "Spielauswahl geschlossen");
+}
+
+await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", async () => {
+    assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
+    await anna.click("#open-game-picker");
+    await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 3, "3 Spiele zur Auswahl");
+    await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
+        && document.querySelectorAll(".game-tile img").length === 3`, "3 Vorschaubilder geladen");
+    const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
+        title: t.querySelector(".game-tile-title").textContent,
+        description: t.querySelector(".game-tile-description").textContent }));`);
+    for (const tile of tiles) {
+        assert.ok(tile.title.length > 0 && tile.description.length > 20, `Titel und Beschreibung: ${tile.title}`);
+    }
+    assert.equal(await anna.eval(`return document.querySelector(".game-picker-start").disabled;`), true, "Start ohne Auswahl gesperrt");
+
+    // Auswahl wechselt: immer nur eine Kachel ausgewählt
+    await anna.click('.game-tile[data-game-id="schocken"] .game-tile-select');
+    await anna.click('.game-tile[data-game-id="revierkampf"] .game-tile-select');
+    const pressed = await anna.eval(`return [...document.querySelectorAll('.game-tile-select[aria-pressed="true"]')]
+        .map(b => b.closest(".game-tile").dataset.gameId);`);
+    assert.deepEqual(pressed, ["revierkampf"], "nur Revierkampf ausgewählt");
+    assert.equal(await anna.eval(`return document.querySelector(".game-picker-start").disabled;`), false, "Start freigegeben");
+    assert.ok((await anna.text(".game-picker-selection")).includes("Revierkampf"), "Fußzeile nennt die Auswahl");
+
+    const overflow = await anna.eval(`return document.documentElement.scrollWidth - document.documentElement.clientWidth;`);
+    assert.ok(overflow <= 0, `kein horizontales Scrollen (${overflow}px)`);
+    await anna.screenshot("16-spielauswahl.png");
+    await setTheme(anna, "dark");
+    await sleep(300);
+    assert.ok(await brightness(anna, ".game-picker") < 60, "Dialog dunkel");
+    await anna.screenshot("17-spielauswahl-dunkel.png");
+    await setTheme(anna, "light");
+
+    // Abbrechen schließt, ohne ein Spiel zu starten; beim nächsten Öffnen ist nichts gewählt
+    await anna.click('.game-picker [data-action="cancel"]');
+    await anna.waitFor(`!document.getElementById("game-picker").open`, "Dialog geschlossen");
+    assert.equal(await anna.text("#game-title"), "Kein Spiel ausgewählt");
+    await anna.click("#open-game-picker");
+    assert.equal(await anna.eval(`return document.querySelectorAll('.game-tile-select[aria-pressed="true"]').length;`), 0, "Auswahl zurückgesetzt");
+    await anna.click('.game-picker [data-action="cancel"]');
+});
 await test("Host startet Spiel → lädt bei beiden", async () => {
-    assert.equal(await anna.eval(`return document.querySelectorAll("#game-select option").length;`), 3, "3 Spiele zur Auswahl");
-    await anna.eval(`document.getElementById("game-select").value = "risiko-wuerfel";`);
-    await anna.click("#start-game-button");
+    await startGame(anna, "risiko-wuerfel");
     await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");
     await ben.waitFor(`document.querySelector(".rw")`, "Spiel bei Ben");
     assert.equal(await anna.text("#game-title"), "Risiko-Würfel");
@@ -440,8 +488,7 @@ const ownCells = page => page.eval(`
     return m ? Number(m[1]) : -1;`);
 
 await test("Host startet Revierkampf → Setup bei beiden", async () => {
-    await anna.eval(`document.getElementById("game-select").value = "revierkampf";`);
-    await anna.click("#start-game-button");
+    await startGame(anna, "revierkampf");
     await anna.waitFor(`document.querySelector('.rk[data-phase="setup"] .rk-start')`, "Setup mit Start-Button bei Anna");
     await ben.waitFor(`document.querySelector('.rk[data-phase="setup"]')`, "Setup bei Ben");
     assert.equal(await ben.eval(`return document.querySelector(".rk-start") === null;`), true, "Ben hat keinen Start-Button");
@@ -525,8 +572,7 @@ const hiddenDiceOf = (page, name) => page.eval(`
 const enabled = (page, selector) => page.eval(`const b = document.querySelector(${JSON.stringify(selector)}); return !!b && !b.disabled;`);
 
 await test("Host startet Schocken → Setup und Regel-Kurzfassung", async () => {
-    await anna.eval(`document.getElementById("game-select").value = "schocken";`);
-    await anna.click("#start-game-button");
+    await startGame(anna, "schocken");
     await anna.waitFor(`document.querySelector('.sk[data-phase="setup"] .sk-start')`, "Setup mit Start-Button bei Anna");
     await ben.waitFor(`document.querySelector('.sk[data-phase="setup"]')`, "Setup bei Ben");
     assert.equal(await ben.eval(`return document.querySelector(".sk-start") === null;`), true, "Ben hat keinen Start-Button");

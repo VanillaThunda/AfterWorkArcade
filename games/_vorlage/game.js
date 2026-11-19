@@ -9,7 +9,9 @@
  *  2. Unten meta.id auf denselben Namen setzen und meta.name anpassen.
  *  3. createState() und handleAction() mit der eigenen Spiellogik füllen.
  *  4. public/client.js für die Darstellung anpassen.
- *  5. Server neu starten – das Spiel erscheint automatisch in der Auswahl.
+ *  5. Optional: Vorschaubild als public/preview.webp ablegen (auch .png/.jpg/.svg;
+ *     Format 16:10, z. B. 640×400 px). Ohne Bild zeigt die Kachel einen Platzhalter.
+ *  6. Server neu starten – das Spiel erscheint automatisch in der Auswahl.
  *
  * Ordner, die mit "_" beginnen, werden vom Server ignoriert – diese Vorlage
  * wird also nie selbst geladen.
@@ -21,7 +23,7 @@ module.exports = {
     meta: {
         id: "mein-spiel",         // muss exakt dem Ordnernamen entsprechen
         name: "Mein Spiel",       // Anzeigename in der Spielauswahl
-        description: "Kurze Beschreibung für die Spielauswahl.",
+        description: "Kurze Beschreibung für die Spielauswahl (1–3 Sätze).",
         minPlayers: 1,            // optional, Standard 1
         maxPlayers: 8             // optional, Standard unbegrenzt
     },

@@ -551,6 +551,11 @@ await test("Partie mit 1 Bot: Würfe bleiben für Mitspieler verdeckt, Auswertun
     while (Date.now() < end && !(await anna.visible(".sk-reveal-box"))) {
         for (const [page, other, name] of [[anna, ben, "Anna"], [ben, anna, "Ben"]]) {
             if (!(await enabled(page, ".sk-roll"))) continue;
+            if (!checkedHidden) {
+                // Laden: Hinweis, dass der eine Wurf schon um Deckel geht
+                const hint = await page.text(".sk-panel-info");
+                assert.ok(hint.includes("Laden") && hint.includes("Deckel"), `Laden-Hinweis: ${hint}`);
+            }
             await page.click(".sk-roll");
             await page.waitFor(`document.querySelector(".sk-look")`, "Aufdecken-Button");
             assert.equal(await page.eval(`return document.querySelectorAll(".sk-panel-dice .sk-die.sk-hidden").length;`), 3,
@@ -583,6 +588,7 @@ await test("Partie mit 1 Bot: Würfe bleiben für Mitspieler verdeckt, Auswertun
     await anna.waitFor(`document.querySelector(".sk-reveal-box")`, "Auswertung", 3000);
     assert.equal(await anna.eval(`return document.querySelectorAll(".sk-reveal-list li").length;`), 3);
     assert.equal(await anna.eval(`return document.querySelectorAll(".sk-reveal-list .sk-die.sk-hidden").length;`), 0, "alles aufgedeckt");
+    assert.match(await anna.text(".sk-reveal-box"), /Laden beendet – ab jetzt bis zu 3 Würfe/, "Hinweis nach dem Laden");
     await anna.screenshot("09-schocken.png");
 
     await ben.viewport(420, 900);

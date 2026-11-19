@@ -246,6 +246,7 @@
 .sk-reveal-list .sk-loser { background: var(--sk-loser-bg); }
 .sk-reveal-box { pointer-events: auto; } /* "Weiter"-Button klickbar */
 .sk-reveal-text { margin: 10px 0 0; font-weight: 600; }
+.sk-reveal-laden { margin: 4px 0 0; }
 .sk-reveal-ready { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .sk-ready {
     padding: 2px 8px;

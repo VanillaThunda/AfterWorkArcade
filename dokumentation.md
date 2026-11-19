@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.5.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.5.1 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -42,7 +42,7 @@ Die Startmeldung zeigt die erreichbaren Adressen, z. B.:
 [Spiele] Geladen: Revierkampf (revierkampf)
 [Spiele] Geladen: Risiko-Würfel (risiko-wuerfel)
 [Spiele] Geladen: Schocken (schocken)
-AfterWork Arcade v0.5.0 läuft auf Port 3000
+AfterWork Arcade v0.5.1 läuft auf Port 3000
   Lokal:    http://localhost:3000
   Netzwerk: http://192.168.1.20:3000
 ```
@@ -463,7 +463,10 @@ verdeckt, entscheidet jeder selbst. Die Vorgabe steht in der Kopfzeile („Vorga
   ist der Topf leer, gibt der Spieler mit dem besten Wurf seine Deckel ab. Ab leerem Topf
   spielen nur noch Spieler mit Deckeln. Schock Aus: Der Verlierer bekommt sofort alle Deckel.
 - Wer alle 13 Deckel hat, verliert die Hälfte. Der Rundenverlierer beginnt die nächste Runde.
-- Die erste Runde einer Partie ist das **Laden** (jeder würfelt einmal, Startspieler zufällig).
+- Die erste Runde einer Partie ist das **Laden** (Regel von schockfreunde.de): Jeder würfelt genau
+  einmal, der Startspieler ist zufällig. Das Laden zählt bereits – der tiefste Wurf bekommt Deckel
+  aus dem Topf (nach dem besten Wurf) und beginnt die erste reguläre Runde mit bis zu 3 Würfen.
+  Statuszeile, Zughinweis, Auswertung und Regel-Kurzfassung weisen darauf hin.
 - Umfang (Host): **Eine Hälfte** oder **Komplett** – zwei Hälften; verliert derselbe Spieler
   beide, ist die Partie vorbei, sonst folgt ein **Finale** zwischen den beiden Hälften-Verlierern
   (der Verlierer der 1. Hälfte trägt den Markierungsdeckel „M“ und beginnt das Finale).

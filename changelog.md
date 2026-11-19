@@ -8,6 +8,18 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.5.1] – 2026-11-19
+
+### Geändert
+- Schocken: Das **Laden** (erste Runde, ein Wurf pro Spieler) wird im Spiel klarer erklärt –
+  laut Regeln zählt es bereits und der tiefste Wurf bekommt Deckel. Statuszeile
+  („Laden (1 Wurf, zählt schon)“), Zughinweis, Setup-Dialog und Regel-Kurzfassung weisen darauf
+  hin; die Auswertung meldet „Laden beendet – ab jetzt bis zu 3 Würfe, X beginnt.“
+  Die Spiellogik ist unverändert.
+- UI-Test prüft den Lade-Hinweis und die Zeile in der Auswertung.
+
+---
+
 ## [0.5.0] – 2026-11-19
 
 ### Hinzugefügt

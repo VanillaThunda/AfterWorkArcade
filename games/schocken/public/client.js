@@ -95,7 +95,8 @@ function createRules() {
         "Nur aufgedeckte Einsen dürfen herausgelegt werden (anklicken). Sie liegen offen und werden nicht mehr gewürfelt.",
         "Zwei aufgedeckte Sechsen → eine Eins (drei Sechsen → zwei Einsen). Nicht im letzten Wurf; die übrige Sechs muss neu.",
         "General und Straße zählen nur aus einem Wurf mit allen 3 Würfeln. Ein Schock darf gebaut werden.",
-        "Zum Start wird geladen: Jeder würfelt genau einmal. 30 s Zeit pro Zug."
+        "Zum Start wird geladen: Jeder würfelt genau einmal – das zählt schon: Der tiefste Wurf bekommt Deckel aus dem Topf und beginnt die erste richtige Runde (bis zu 3 Würfe).",
+        "30 s Zeit pro Zug."
     ]) flowList.append(createElement("li", null, text));
     flow.append(flowList);
 
@@ -235,7 +236,7 @@ export function mount(container, ctx) {
         }
         const parts = [STAGE_LABELS[match.stage] ?? ""];
         if (round) {
-            parts.push(round.laden ? "Laden (1 Wurf)" : `Runde ${round.number}`);
+            parts.push(round.laden ? "Laden (1 Wurf, zählt schon)" : `Runde ${round.number}`);
             if (round.firstOpen !== null && round.firstOpen !== undefined) {
                 const style = round.firstOpen ? "aufgedeckt" : "verdeckt";
                 parts.push(round.laden ? `Vorgabe: ${style}` : `Vorgabe: ${round.maxThrows} ${round.maxThrows === 1 ? "Wurf" : "Würfe"} · ${style}`);
@@ -355,6 +356,9 @@ export function mount(container, ctx) {
         box.append(list, createElement("p", "sk-reveal-text", state.reveal.text));
         if (state.reveal.halfLoserId && state.phase === "playing") {
             box.append(createElement("p", "sk-reveal-half", `${nameOf(state.reveal.halfLoserId)} hat alle Deckel – die Hälfte ist vorbei!`));
+        } else if (state.round.laden && state.reveal.loserId && state.phase === "playing") {
+            box.append(createElement("p", "sk-muted sk-reveal-laden",
+                `Laden beendet – ab jetzt bis zu 3 Würfe, ${nameOf(state.reveal.loserId)} beginnt.`));
         }
 
         // "Weiter": ab 75 % der Spieler geht es sofort weiter, sonst nach Ablauf des Timers.
@@ -402,7 +406,8 @@ export function mount(container, ctx) {
         if (state.phase === "setup") {
             box.append(createElement("h3", null, "🎲 Schocken"));
             box.append(createElement("p", "sk-muted",
-                "Würfle möglichst hoch – der schlechteste Wurf jeder Runde kassiert Deckel. Wer alle 13 Deckel hat, verliert."));
+                "Würfle möglichst hoch – der schlechteste Wurf jeder Runde kassiert Deckel. Wer alle 13 Deckel hat, verliert. " +
+                "Zum Start wird geladen: ein Wurf pro Spieler, der zählt bereits."));
             box.append(createElement("p", null, `Mitspieler: ${state.members.map(m => m.name).join(", ")}`));
 
             if (host) {
@@ -510,7 +515,9 @@ export function mount(container, ctx) {
         let hint = "";
         if (isMyTurn) {
             const hasOnes = myTurn.dice.some((value, i) => value === 1 && !myTurn.aside[i]);
-            if (myTurn.throws === 0) hint = round.laden ? "Laden: ein Wurf für alle." : `Bis zu ${limit} ${limit === 1 ? "Wurf" : "Würfe"}.`;
+            if (myTurn.throws === 0) hint = round.laden
+                ? "Laden: Jeder würfelt einmal – der tiefste Wurf bekommt schon Deckel aus dem Topf und beginnt die erste Runde."
+                : `Bis zu ${limit} ${limit === 1 ? "Wurf" : "Würfe"}.`;
             else if (myTurn.mustRoll) hint = "Sechsen gedreht – die übrigen Würfel müssen neu geworfen werden.";
             else if (!myTurn.open && mustReveal) hint = myTurn.throws >= limit
                 ? "Letzter Wurf – der Erste hat aufgedeckt, also deckst du beim Beenden auch auf."

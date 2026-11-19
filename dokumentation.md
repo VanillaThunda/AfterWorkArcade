@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.4.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.5.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -42,7 +42,7 @@ Die Startmeldung zeigt die erreichbaren Adressen, z. B.:
 [Spiele] Geladen: Revierkampf (revierkampf)
 [Spiele] Geladen: Risiko-Würfel (risiko-wuerfel)
 [Spiele] Geladen: Schocken (schocken)
-AfterWork Arcade v0.4.0 läuft auf Port 3000
+AfterWork Arcade v0.5.0 läuft auf Port 3000
   Lokal:    http://localhost:3000
   Netzwerk: http://192.168.1.20:3000
 ```
@@ -86,6 +86,11 @@ kopieren und dort per SSH `node server.js` ausführen.
     Der Einklapp-Zustand wird pro Browser gemerkt (`localStorage`, Schlüssel `awa-dock`).
   - Unter 900 px Breite wird nicht angedockt: Das Spiel steht oben, die Lobby-Elemente darunter.
   - Nach „Spiel beenden“ erscheint wieder die gewohnte Lobby-Ansicht.
+- **Hell/Dunkel-Design:** Der runde Schalter oben rechts (🌙 / ☀️) wechselt zwischen hellem und
+  dunklem Design – auf der ganzen Seite inkl. aller Spiele, sofort und ohne Neuladen. Die Wahl
+  wird pro Browser gemerkt (`localStorage`, Schlüssel `awa-theme`); ohne gespeicherte Wahl gilt
+  die Systemeinstellung (`prefers-color-scheme`). Ein kleines Script im `<head>` setzt das
+  Design schon vor dem Laden des CSS, damit nichts hell aufblitzt.
 - **Globaler Chat und Online-Liste:** in der Seitenleiste, für alle angemeldeten User.
 - **Wiederverbindung:** Nach einem Reload oder kurzen Verbindungsabbruch (bis 30 s) ist man
   automatisch wieder in seiner Lobby, inklusive Spielstand.
@@ -166,6 +171,7 @@ _stable/
       ├─ ui.js             Toasts, Passwort-Dialog, Verbindungsanzeige
       ├─ chat.js           Chat-Komponente (global und Lobby)
       ├─ dock.js           Spielmodus: Andocken/Einklappen der Leisten, Hinweis-Punkte
+      ├─ theme.js          Hell/Dunkel-Schalter (data-theme, Event awa-themechange)
       ├─ game-loader.js    lädt/entlädt den Client-Teil eines Spiels
       └─ views/            login.js, lobby-list.js, lobby-room.js
 ```
@@ -332,6 +338,14 @@ Wichtig:
 - CSS-Klassen mit einem Präfix versehen (z. B. `quiz-…`), damit sie nicht mit anderen kollidieren.
 - Die CSS-Variablen des Lobby-Systems (z. B. `var(--color-muted)`) und die Button-Styles
   stehen auch im Spiel zur Verfügung.
+- **Dunkles Design:** Das Design steht im Attribut `data-theme` (`"light"`/`"dark"`) am
+  `<html>`-Element. Spiele verwenden für Flächen und Texte möglichst die Variablen des
+  Lobby-Systems (`--color-surface`, `--color-text`, `--color-muted`, `--color-border`,
+  `--color-input-bg` …) – diese werden im Dark-Mode automatisch umgestellt. Eigene feste Farben
+  als spielbezogene Variablen anlegen und überschreiben, z. B.
+  `:root[data-theme="dark"] .quiz { --quiz-accent: #64b5f6; }`.
+  Wer per Canvas zeichnet, liest Farben per `getComputedStyle` und hört auf das Event
+  `awa-themechange` am `document` (Beispiel: Revierkampf).
 
 ---
 
@@ -570,7 +584,7 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle fünf nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.

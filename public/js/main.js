@@ -12,6 +12,7 @@ import { api, getToken, setToken, clearToken, openEventStream } from "./api.js";
 import { createChat } from "./chat.js";
 import { createDock } from "./dock.js";
 import { showToast, askPassword, setConnectionStatus } from "./ui.js";
+import { initThemeToggle } from "./theme.js";
 import { createLoginView } from "./views/login.js";
 import { createLobbyListView } from "./views/lobby-list.js";
 import { createLobbyRoomView } from "./views/lobby-room.js";
@@ -47,6 +48,8 @@ function showView(name) {
     document.getElementById("sidebar").hidden = !loggedIn;
     document.getElementById("session-info").hidden = !loggedIn;
 }
+
+initThemeToggle();
 
 const loginView = createLoginView({ onLogin: login });
 

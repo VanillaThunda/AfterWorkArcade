@@ -10,6 +10,15 @@
     --rw-win: #2e7d32;
 }
 
+/* Dunkles Design: Akzentfarben aufhellen, damit Texte lesbar bleiben.
+   Die Würfel selbst bleiben weiß wie echte Würfel. */
+:root[data-theme="dark"] .rw {
+    --rw-attacker: #ef5350;
+    --rw-defender: #64b5f6;
+    --rw-win: #66bb6a;
+}
+:root[data-theme="dark"] .rw-die { border-color: #111; }
+
 .rw-round {
     text-align: center;
     font-weight: bold;

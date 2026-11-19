@@ -8,6 +8,30 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.5.0] – 2026-11-19
+
+### Hinzugefügt
+- **Dunkles Design (Dark-Mode)** für die gesamte Seite inkl. aller Spiele:
+  - Kleiner runder Schalter oben rechts in der Kopfzeile (🌙 / ☀️), auch vor dem Login sichtbar.
+    Umschalten wirkt sofort, auch während eines laufenden Spiels.
+  - Die Wahl wird pro Browser gemerkt (`localStorage`, Schlüssel `awa-theme`); ohne
+    gespeicherte Wahl gilt die Systemeinstellung. Kein helles Aufblitzen beim Laden.
+  - Neues Modul `public/js/theme.js`; Design per `data-theme` am `<html>`-Element, Event
+    `awa-themechange` für Spiele mit Canvas.
+  - Risiko-Würfel: hellere Akzentfarben im Dunklen, Würfel bleiben weiß.
+    Revierkampf: Karte unverändert, Umgebung dunkel. Schocken: Tisch und Würfel unverändert,
+    Auswertung, eigener Bereich, Ereignisse und Regeln dunkel.
+- Tests: UI-Test prüft Dark-Mode-Schalter, Speicherung nach Reload und die dunkle Darstellung
+  von Revierkampf und Schocken (Screenshots 12–14) sowie den Schocken-Setup-Dialog (15).
+
+### Geändert
+- Basis-Styles: bisher feste Farben (Eingabefelder, Zweit-Buttons, Chat-Hintergrund, Dialog,
+  Kopfzeile) laufen jetzt über CSS-Variablen.
+- Schocken: Das Spielfeld (`.sk-table`) ist höher und wächst mit der Bildschirmhöhe
+  (400–600 px) – der Setup-Dialog mit der Bot-Auswahl passt ohne Scrollen.
+
+---
+
 ## [0.4.0] – 2026-11-18
 
 ### Hinzugefügt

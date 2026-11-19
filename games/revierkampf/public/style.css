@@ -5,7 +5,17 @@
  */
 
 /* Äußerer Rahmen = Container für die Container-Queries unten. */
-.rk-root { container-type: inline-size; }
+.rk-root {
+    container-type: inline-size;
+    --rk-empty: #d9d5c7;          /* Fläche, bevor die Karte steht (liest client.js) */
+    --rk-swatch-border: rgba(0, 0, 0, 0.25);
+}
+
+/* Dunkles Design: Die Karte selbst bleibt wie ein Spielbrett unverändert. */
+:root[data-theme="dark"] .rk-root {
+    --rk-empty: #2b2f33;
+    --rk-swatch-border: rgba(255, 255, 255, 0.35);
+}
 
 /* Standard: Rangliste und Ereignisse unter der Karte (Karte bekommt die volle Breite). */
 .rk {
@@ -130,7 +140,7 @@
     border-radius: 3px;
     margin-right: 4px;
     flex-shrink: 0;
-    border: 1px solid rgba(0, 0, 0, 0.25);
+    border: 1px solid var(--rk-swatch-border);
 }
 
 .rk-side h4 { margin: 0 0 6px; }

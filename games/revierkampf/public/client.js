@@ -142,7 +142,7 @@ export function mount(container, ctx) {
         }
 
         if (!grid) {
-            context2d.fillStyle = "#d9d5c7";
+            context2d.fillStyle = getComputedStyle(frame).getPropertyValue("--rk-empty").trim() || "#d9d5c7";
             context2d.fillRect(0, 0, canvas.width, canvas.height);
             return;
         }
@@ -360,6 +360,10 @@ export function mount(container, ctx) {
     });
     resizeObserver.observe(canvas);
 
+    // Hell/Dunkel umgeschaltet → leere Fläche (CSS-Variable --rk-empty) neu zeichnen.
+    const onThemeChange = () => { if (state) drawMap(); };
+    document.addEventListener("awa-themechange", onThemeChange);
+
     // --- Schnittstelle zum Lobby-System -------------------------------------
     return {
         update(newState) {
@@ -368,6 +372,7 @@ export function mount(container, ctx) {
         },
         destroy() {
             resizeObserver.disconnect();
+            document.removeEventListener("awa-themechange", onThemeChange);
             frame.remove();
         }
     };

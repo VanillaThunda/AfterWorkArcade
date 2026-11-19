@@ -5,6 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AfterWork Arcade</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+    <!-- Design (hell/dunkel) vor dem CSS setzen, damit beim Laden nichts aufblitzt.
+         Gespeicherte Wahl > Systemeinstellung. Umschalten: public/js/theme.js -->
+    <script>
+        (function () {
+            var theme = null;
+            try { theme = localStorage.getItem("awa-theme"); } catch (e) { /* gesperrt */ }
+            if (theme !== "dark" && theme !== "light") {
+                theme = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+            }
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
     <link rel="stylesheet" href="/css/style.css">
     <!-- type="module": native ES-Module, kein Build-Schritt nötig -->
     <script type="module" src="/js/main.js"></script>
@@ -16,10 +28,15 @@
 <!-- ===================================================================== -->
 <header class="topbar">
     <h1 class="topbar-title">🎮 AfterWork Arcade <span id="app-version" class="topbar-version"></span></h1>
+    <div class="topbar-right">
     <div id="session-info" class="topbar-session" hidden>
         <span id="connection-status" class="connection-status" title="Verbindungsstatus"></span>
         <span>Angemeldet als <strong id="current-user-name"></strong></span>
         <button id="logout-button" class="button-secondary">Abmelden</button>
+    </div>
+    <!-- Hell/Dunkel-Schalter (auch vor dem Login sichtbar) -->
+    <button id="theme-toggle" type="button" class="theme-toggle" aria-pressed="false"
+            title="Dunkles Design" aria-label="Dunkles Design">🌙</button>
     </div>
 </header>
 

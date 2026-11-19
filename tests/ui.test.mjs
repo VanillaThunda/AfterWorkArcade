@@ -236,6 +236,41 @@ await test("Globaler Chat (HTML wird als Text angezeigt)", async () => {
     await anna.screenshot("02-uebersicht.png");
 });
 
+/** Helligkeit (0–255) der berechneten Hintergrundfarbe eines Elements. */
+const brightness = (page, selector) => page.eval(`
+    const m = getComputedStyle(document.querySelector(${JSON.stringify(selector)})).backgroundColor.match(/[\\d.]+/g).map(Number);
+    return Math.round(0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]);`);
+const theme = page => page.eval(`return document.documentElement.dataset.theme;`);
+/** Schaltet per Button auf das gewünschte Design. */
+async function setTheme(page, wanted) {
+    if (await theme(page) !== wanted) await page.click("#theme-toggle");
+    assert.equal(await theme(page), wanted);
+}
+
+await test("Dark-Mode: Schalter wechselt das Design und bleibt nach dem Neuladen erhalten", async () => {
+    const initial = await theme(anna);
+    await setTheme(anna, "light");
+    await sleep(300); // Farbübergang
+    const light = await brightness(anna, "body");
+    assert.ok(light > 200, `hell (Start: ${initial}, Helligkeit ${light})`);
+    assert.equal(await anna.text("#theme-toggle"), "🌙");
+    await anna.click("#theme-toggle");
+    assert.equal(await theme(anna), "dark");
+    assert.equal(await anna.eval(`return document.getElementById("theme-toggle").getAttribute("aria-pressed");`), "true");
+    await sleep(300); // Farbübergang
+    assert.ok(await brightness(anna, "body") < 60, "Hintergrund dunkel");
+    assert.ok(await brightness(anna, "#global-chat-input") < 60, "Eingabefeld dunkel");
+    await anna.screenshot("12-darkmode.png");
+
+    await anna.goto(APP);
+    await anna.waitFor(`!document.getElementById("view-overview").hidden`, "Übersicht nach Reload");
+    assert.equal(await theme(anna), "dark", "nach Reload weiterhin dunkel");
+    assert.equal(await anna.text("#theme-toggle"), "☀️");
+    await setTheme(anna, "light");
+    await sleep(300);
+    assert.ok(await brightness(anna, "body") > 200, "wieder hell");
+});
+
 section("Lobbys");
 
 await test("Passwortfelder verdeckt, aber kein Browser-Passwortfeld (kein Speichern-Dialog)", async () => {
@@ -466,6 +501,14 @@ await test("Angriff per Klick vergrößert das eigene Revier", async () => {
         return m && Number(m[1]) > ${before} + 10; })()`, "Revier gewachsen", 5000);
     await anna.screenshot("07-revierkampf.png");
 });
+await test("Revierkampf im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".game-card") < 60, "Spielkarte dunkel");
+    assert.equal(await ben.eval(`return document.querySelector(".rk-canvas").width > 0;`), true);
+    await ben.screenshot("13-revierkampf-dark.png");
+    await setTheme(ben, "light");
+});
 await test("Host beendet Revierkampf → zurück in der Lobby", async () => {
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".rk")`, "Spiel weg bei Ben");
@@ -488,6 +531,9 @@ await test("Host startet Schocken → Setup und Regel-Kurzfassung", async () => 
     await ben.waitFor(`document.querySelector('.sk[data-phase="setup"]')`, "Setup bei Ben");
     assert.equal(await ben.eval(`return document.querySelector(".sk-start") === null;`), true, "Ben hat keinen Start-Button");
     assert.equal(await anna.visible(".sk-rules-table"), true, "Regeln unter dem Spielfeld sichtbar");
+    const scroll = await anna.eval(`const b = document.querySelector(".sk-overlay-box"); return b.scrollHeight - b.clientHeight;`);
+    assert.ok(scroll <= 1, `Setup-Dialog passt ohne Scrollen (Überhang ${scroll}px)`);
+    await anna.screenshot("15-schocken-setup.png");
 });
 await test("Partie mit 1 Bot: Würfe bleiben für Mitspieler verdeckt, Auswertung erscheint", async () => {
     await anna.eval(`const s = document.querySelector(".sk-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
@@ -545,6 +591,14 @@ await test("Partie mit 1 Bot: Würfe bleiben für Mitspieler verdeckt, Auswertun
     await ben.screenshot("10-schocken-mobil.png");
     await ben.viewport(1400, 1000);
     assert.ok(overflow <= 0, `horizontaler Überlauf: ${overflow}px`);
+
+    // Dark-Mode: Auswertungs-Box und Regeln werden dunkel
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".sk-reveal-box") < 60, "Auswertung dunkel");
+    assert.ok(await brightness(ben, ".sk-rules") < 60, "Regeln dunkel");
+    await ben.screenshot("14-schocken-dark.png");
+    await setTheme(ben, "light");
 });
 await test("Nächste Runde startet automatisch, nur Einsen lassen sich herauslegen", async () => {
     // "Weiter": Anna allein reicht nicht (2 Menschen → beide nötig), mit Ben geht es weiter

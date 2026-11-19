@@ -8,6 +8,25 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.5.2] – 2026-11-19
+
+### Geändert
+- **Versionierung mit Git** statt Versionsordnern: ein Repository mit den Arbeitsordnern
+  `main\` (Branch main, Produktivversion) und `dev\` (Branch dev, Entwicklung) als
+  Git-Worktrees. Alle bisherigen Versionen sind als Historie mit Annotated Tags
+  `v0.0.1` … `v0.5.1` übernommen. Ablauf siehe `dokumentation.md`, Abschnitt 11.
+
+### Hinzugefügt
+- Git-Hooks in `.githooks/` (ohne Husky, keine npm-Pakete): `pre-commit` (keine direkten Commits
+  auf main, Syntaxprüfung) und `pre-merge-commit` (Release-Prüfung und schnelle Tests vor dem
+  Merge nach main).
+- `npm run release` (`scripts/release.mjs`): prüft das Release, führt alle Tests aus, merged
+  dev → main, setzt den Annotated Tag und zieht dev nach.
+- `.gitignore` (u. a. `tests/output/`) und `.gitattributes` (Zeilenenden LF).
+- Test `tests/git.test.mjs` (`npm run test:git`, 7 Prüfungen) für die Release-Prüfung.
+
+---
+
 ## [0.5.1] – 2026-11-19
 
 ### Geändert

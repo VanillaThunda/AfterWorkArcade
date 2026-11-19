@@ -1,0 +1,4 @@
+#!/bin/sh
+# Git-Hook: läuft vor jedem Commit (aktiviert per: git config core.hooksPath .githooks).
+# Logik siehe scripts/git/pre-commit.mjs
+exec node scripts/git/pre-commit.mjs

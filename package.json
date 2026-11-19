@@ -1,6 +1,6 @@
 {
     "name": "afterwork-arcade",
-    "version": "0.5.1",
+    "version": "0.5.2",
     "description": "Lobby-System für Multiplayer-Spiele und -Tools im lokalen Netzwerk",
     "main": "server.js",
     "private": true,
@@ -11,7 +11,9 @@
         "test:schocken": "node tests/schocken.test.mjs",
         "test:reconnect": "node tests/reconnect.test.mjs",
         "test:ui": "node tests/ui.test.mjs",
-        "test:all": "node tests/run-all.mjs"
+        "test:git": "node tests/git.test.mjs",
+        "test:all": "node tests/run-all.mjs",
+        "release": "node scripts/release.mjs"
     },
     "engines": {
         "node": ">=18"

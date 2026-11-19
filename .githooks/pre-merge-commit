@@ -1,0 +1,4 @@
+#!/bin/sh
+# Git-Hook: läuft vor dem Merge-Commit (z. B. "git merge --no-ff dev" auf main).
+# Logik siehe scripts/git/pre-merge-commit.mjs
+exec node scripts/git/pre-merge-commit.mjs

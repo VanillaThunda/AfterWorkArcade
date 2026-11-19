@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.5.1 (siehe `package.json` und `changelog.md`)
+**Version:** 0.5.2 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -21,7 +21,7 @@ Echtzeit-Strategiespiel **Revierkampf** und das Kneipen-Würfelspiel **Schocken*
 8. [Spiele: Risiko-Würfel, Revierkampf, Schocken](#8-spiele-risiko-würfel-revierkampf-schocken)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
-11. [Versionierung (Ordner-basiert)](#11-versionierung-ordner-basiert)
+11. [Versionierung mit Git](#11-versionierung-mit-git)
 12. [Tests](#12-tests)
 
 ---
@@ -32,7 +32,7 @@ Echtzeit-Strategiespiel **Revierkampf** und das Kneipen-Würfelspiel **Schocken*
 ein `npm install` ist nicht nötig.
 
 ```bash
-cd AfterWorkArcade/_stable
+cd AfterWorkArcade/main
 node server.js          # alternativ: npm start
 ```
 
@@ -49,7 +49,7 @@ AfterWork Arcade v0.5.1 läuft auf Port 3000
 
 Mitspieler im selben Netzwerk öffnen die **Netzwerk-Adresse** im Browser.
 
-**Auf der Synology:** Den Inhalt von `_stable` z. B. nach `/volume1/apps/afterwork-arcade`
+**Auf der Synology:** Den Inhalt von `main` (freigegebene Version, siehe Abschnitt 11) z. B. nach `/volume1/apps/afterwork-arcade`
 kopieren und dort per SSH `node server.js` ausführen.
 
 | Aktion       | Befehl                                         |
@@ -133,11 +133,16 @@ gespeichert und bei jeder Anfrage im Header `Authorization: Bearer <token>` mitg
 ## 4. Ordnerstruktur
 
 ```
-_stable/
+main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 ├─ server.js               Einstiegspunkt: HTTP-Server und Routing
 ├─ package.json            Name, Version, Startskript (keine Abhängigkeiten)
 ├─ changelog.md            Änderungen je Version
 ├─ dokumentation.md        diese Datei
+├─ .gitignore / .gitattributes   ignorierte Dateien (z. B. tests/output), Zeilenenden LF
+├─ .githooks/              Git-Hooks: pre-commit, pre-merge-commit (siehe Abschnitt 11)
+├─ scripts/
+│  ├─ release.mjs          npm run release: dev → main mergen und Versions-Tag setzen
+│  └─ git/                 Logik der Hooks, Release-Prüfung (release-check.mjs)
 ├─ server/
 │  ├─ config.js            alle Einstellungen und Grenzwerte
 │  ├─ http-utils.js        JSON lesen/senden, Fehlerklasse, statische Dateien
@@ -545,33 +550,65 @@ Alle Einstellungen stehen in `server/config.js`:
 
 ---
 
-## 11. Versionierung (Ordner-basiert)
+## 11. Versionierung mit Git
 
-Es gibt (noch) keine Git-Versionierung. Stattdessen (verbindlich, siehe auch
-`AfterWorkArcade/README_claude-code.txt`):
+Seit Version 0.5.2 wird mit **Git** versioniert, ohne Git-Server. Bis 0.5.1 gab es dafür Versionsordner.
+Diese Ordner wurden als Historie mit Tags `v0.0.1` … `v0.5.1` übernommen.
 
-- `AfterWorkArcade/_stable/` enthält **immer die aktuelle, freigegebene Version**.
-- `AfterWorkArcade/_dev/` ist die Arbeitskopie für die nächste Version (nur während der Entwicklung).
-- Ältere Versionen liegen in Ordnern mit ihrer Versionsnummer, z. B. `AfterWorkArcade/v0.1.0/`.
+**Aufbau:** ein Repository mit zwei Arbeitsordnern (*Git-Worktrees*), benannt wie die Branches:
 
-So kann jederzeit einfach auf eine ältere Version zurückgewechselt werden.
+```
+C:\CodingProjekte\AfterWorkArcade\
+├─ main\   Branch main – freigegebene Produktivversion (enthält das Repository .git)
+└─ dev\    Branch dev  – Entwicklung und Tests (Worktree desselben Repositorys)
+```
 
-**Ablauf für eine neue Version** – gilt für Major, Minor und Bugfix (Beispiel: von 0.1.0 auf 0.2.0):
+- `main\` zeigt **immer** die Produktivversion. Syncthing überträgt den Ordner auf die Synology,
+  dort läuft der Server. In `main\` wird nie direkt gearbeitet.
+- In `dev\` wird entwickelt und getestet.
+- Jede Version ist ein **Annotated Tag** `vX.Y.Z` auf `main`. Die Tag-Beschreibung ist der
+  Changelog-Abschnitt der Version (`git tag -n` oder `git show v0.5.2`).
 
-1. Den kompletten Ordner `_stable` kopieren und die Kopie `_dev` nennen.
-2. Alle Änderungen ausschließlich in `_dev` vornehmen und dort testen (`npm run test:all`).
-3. In `_dev/package.json` die `version` erhöhen.
-4. Ist alles in Ordnung und die Version für die Produktion freigegeben:
-   - `_dev/changelog.md` um einen Abschnitt `## [0.2.0] – JJJJ-MM-TT` (oben) ergänzen,
-   - `_dev/dokumentation.md` aktualisieren, falls sich Funktionsweise oder Schnittstellen geändert haben.
-5. Ordner `_stable` in die bisherige Versionsnummer umbenennen, z. B. `v0.1.0`
-   (steht in dessen `package.json`).
-6. Ordner `_dev` in `_stable` umbenennen.
+**Ablauf für eine neue Version** (Major, Minor oder Patch):
 
-Versionsnummern nach Semantic Versioning: **MINOR** erhöhen für neue Funktionen (0.1.0 → 0.2.0),
-**PATCH** für reine Fehlerbehebungen (0.1.0 → 0.1.1).
+1. In `dev\` entwickeln und auf Branch `dev` committen. `version` in `package.json` erhöhen
+   (Semantic Versioning: **MINOR** für neue Funktionen, **PATCH** für Fehlerbehebungen).
+2. `npm run test:all` ausführen und die Version testen lassen.
+3. Nach der Freigabe:
+   - `changelog.md` oben um `## [x.y.z] – JJJJ-MM-TT` ergänzen.
+   - `dokumentation.md` aktualisieren, inklusive der Kopfzeile `**Version:** x.y.z`.
+   - Beides auf `dev` committen.
+4. `npm run release` im Ordner `dev\` ausführen (`scripts/release.mjs`):
+   - Prüft, ob `dev\` und `main\` sauber sind.
+   - Führt die Release-Prüfung aus (siehe unten) und alle Tests.
+   - Führt in `main\` `git merge --no-ff dev` aus.
+   - Setzt den Annotated Tag.
+   - Holt `dev` per Fast-Forward auf den Stand von `main`.
+5. Den Server auf der Synology neu starten.
 
-Empfehlung: Vor dem Abschluss einer Version `npm run test:all` ausführen (siehe Abschnitt 12).
+**Git-Hooks** (versioniert in `.githooks/`, aktiviert per `git config core.hooksPath .githooks`,
+Logik in `scripts/git/`; bewusst ohne Husky, da das Projekt keine npm-Pakete nutzt):
+
+| Hook | Wirkung |
+|---|---|
+| `pre-commit` | Verbietet direkte Commits auf `main` (außer beim Abschluss eines Merges). Prüft die Syntax gestagter `.js`/`.mjs`-Dateien (`node --check`). |
+| `pre-merge-commit` | Nur auf `main`. Führt die Release-Prüfung und die schnellen Tests aus (API, Revierkampf, Schocken). |
+
+**Release-Prüfung** (`node scripts/git/release-check.mjs`):
+- Die Version in `package.json` ist größer als der letzte Tag.
+- `changelog.md` hat oben einen Eintrag mit Datum für diese Version.
+- `dokumentation.md` nennt diese Version.
+
+**Ältere Version verwenden:**
+- **Ansehen bzw. kurz zurückwechseln:** `git -C main switch --detach v0.5.1`.
+  Zurück zur aktuellen Version mit `git -C main switch main`.
+- **Dauerhaft zurücknehmen:** auf `dev` per `git revert <commit>`, danach ein normales Patch-Release.
+- **Unterschiede ansehen:** `git diff v0.5.1 v0.5.2 --stat`.
+
+**Hinweise:**
+- Der Ordner `.git` wird per Syncthing mitsynchronisiert und dient so als Backup.
+- Auf der Synology keine Git-Befehle ausführen, weil die Worktree-Verweise Windows-Pfade enthalten.
+- Ein Git-Server lässt sich später nachrüsten: `git remote add …`, danach `git push --all --follow-tags`.
 
 ---
 
@@ -588,7 +625,8 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
 | `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle fünf nacheinander |
+| `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle sechs nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

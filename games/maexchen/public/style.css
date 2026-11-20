@@ -1,0 +1,263 @@
+/*
+ * Mäxchen – Styles.
+ * Alle Klassen beginnen mit "mx-". Tisch, Becher und Würfel sind reines CSS
+ * und behalten ihre Farben auch im dunklen Design; alles außerhalb des
+ * Tisches nutzt die Theme-Variablen des Lobby-Systems.
+ */
+
+.mx-root { container-type: inline-size; }
+
+.mx {
+    display: grid;
+    gap: 12px;
+    --mx-felt: #24603f;
+    --mx-felt-dark: #143826;
+    --mx-wood: #5c3a22;
+    --mx-gold: #f4c542;
+    --mx-red: #e2584a;
+    --mx-box-bg: rgba(255, 255, 255, 0.96);
+    --mx-box-text: #222;
+    --mx-timer-track: #e4e4e4;
+}
+:root[data-theme="dark"] .mx {
+    --mx-box-bg: rgba(31, 34, 38, 0.97);
+    --mx-box-text: #e4e6e8;
+    --mx-timer-track: #363b42;
+}
+
+/* --- Tisch ----------------------------------------------------------------- */
+.mx-table {
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    gap: 14px;
+    min-height: clamp(380px, 52vh, 560px);
+    padding: 14px;
+    border-radius: 18px;
+    border: 6px solid var(--mx-wood);
+    background: radial-gradient(ellipse at center, var(--mx-felt) 0%, var(--mx-felt-dark) 100%);
+    color: #f5f5f0;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.35);
+}
+.mx-head { display: flex; justify-content: space-between; gap: 10px; }
+.mx-status { font-weight: 600; letter-spacing: 0.02em; }
+
+/* --- Mitte: Becher und Ansage ------------------------------------------------ */
+.mx-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    flex-wrap: wrap;
+    min-height: 170px;
+}
+
+.mx-cup {
+    position: relative;
+    width: 96px;
+    height: 112px;
+    /* Becher: nach oben schmaler, unten ein Rand */
+    clip-path: polygon(14% 0, 86% 0, 100% 100%, 0 100%);
+    background: linear-gradient(90deg, #4e2f19 0%, #8a5a35 35%, #a7744a 50%, #8a5a35 65%, #4e2f19 100%);
+    border-radius: 6px;
+    filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.45));
+}
+.mx-cup::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 14px;
+    background: rgba(0, 0, 0, 0.25);
+}
+.mx-cup.mx-shake { animation: mx-shake 0.7s ease-in-out backwards; }
+@keyframes mx-shake {
+    0%, 100% { transform: none; }
+    15% { transform: translateX(-10px) rotate(-10deg); }
+    30% { transform: translateX(10px) rotate(9deg); }
+    45% { transform: translateX(-8px) rotate(-7deg); }
+    60% { transform: translateX(6px) rotate(5deg); }
+    75% { transform: translateX(-3px) rotate(-2deg); }
+}
+
+.mx-announcement { display: grid; gap: 4px; justify-items: center; text-align: center; }
+.mx-announcer { font-size: 15px; opacity: 0.9; }
+.mx-big { font-size: 46px; line-height: 1.1; letter-spacing: 0.03em; }
+.mx-maexchen { color: var(--mx-gold); text-shadow: 0 0 12px rgba(244, 197, 66, 0.5); }
+
+/* --- Aufdecken --------------------------------------------------------------- */
+.mx-reveal-box {
+    max-width: 440px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: var(--mx-box-bg);
+    color: var(--mx-box-text);
+    text-align: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+}
+.mx-reveal-box h4 { margin: 0 0 8px; font-size: 22px; }
+.mx-reveal-box p { margin: 6px 0; }
+.mx-reveal-box .mx-timer { background: var(--mx-timer-track); margin-top: 10px; }
+.mx-truth { color: #2e7d32; }
+.mx-lie { color: #c62828; }
+:root[data-theme="dark"] .mx-truth { color: #7ddc92; }
+:root[data-theme="dark"] .mx-lie { color: #ff8a7d; }
+.mx-reveal-dice { display: flex; align-items: center; justify-content: center; gap: 12px; font-size: 20px; }
+.mx-outcome { font-weight: 700; }
+
+/* --- Plätze ------------------------------------------------------------------ */
+.mx-seats {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+.mx-seat {
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+}
+.mx-seat-me { background: rgba(255, 255, 255, 0.14); }
+.mx-seat-active { border-color: var(--mx-gold); background: rgba(244, 197, 66, 0.14); }
+.mx-seat-loser { border-color: var(--mx-red); }
+.mx-seat-out { opacity: 0.45; }
+.mx-seat-top { display: flex; min-width: 0; }
+.mx-seat-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.mx-lives { color: #ff6f61; letter-spacing: 2px; }
+.mx-seat-info { font-size: 13px; opacity: 0.9; min-height: 1.2em; }
+
+/* --- Würfel ------------------------------------------------------------------ */
+.mx-dice { display: inline-flex; gap: 8px; }
+.mx-die {
+    --mx-size: 50px;
+    width: var(--mx-size);
+    height: var(--mx-size);
+    padding: calc(var(--mx-size) * 0.13);
+    box-sizing: border-box;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    place-items: center;
+    border-radius: calc(var(--mx-size) * 0.18);
+    background: linear-gradient(145deg, #ffffff, #e6e6e0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+}
+.mx-die i { width: 72%; height: 72%; border-radius: 50%; background: #1d1d1d; }
+.mx-die-small { --mx-size: 28px; }
+.mx-reveal-dice .mx-die { --mx-size: 40px; }
+
+/* --- Zeitbalken -------------------------------------------------------------- */
+.mx-timer { height: 4px; border-radius: 2px; background: rgba(0, 0, 0, 0.25); overflow: hidden; }
+.mx-timer-fill {
+    height: 100%;
+    background: var(--mx-gold);
+    transform-origin: left;
+    animation-name: mx-timer;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+}
+@keyframes mx-timer {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); background: var(--mx-red); }
+}
+
+/* --- Overlays (Setup, Ende) ------------------------------------------------ */
+.mx-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(10, 30, 20, 0.5);
+}
+.mx-overlay[hidden] { display: none; }
+.mx-overlay-box {
+    max-width: 420px;
+    max-height: 100%;
+    overflow: auto;
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3);
+}
+.mx-overlay-box h3 { margin: 0 0 8px; }
+.mx-overlay-box p { margin: 6px 0; font-size: 14px; }
+.mx-setup { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 12px 0; }
+.mx-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.mx-placements { text-align: left; display: inline-block; margin: 4px 0 10px; }
+.mx-muted { color: var(--color-muted, #666); font-size: 13px; }
+
+/* --- Eigener Bereich -------------------------------------------------------- */
+.mx-panel {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px 16px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+}
+.mx-panel[hidden] { display: none; }
+.mx-panel-info { display: grid; gap: 3px; }
+.mx-panel-info strong { font-size: 18px; }
+.mx-panel-info:first-child { grid-column: 1 / -1; }
+.mx-panel-dice {
+    display: flex;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: radial-gradient(ellipse at center, var(--mx-felt), var(--mx-felt-dark));
+}
+.mx-panel-dice + .mx-panel-info { grid-column: auto; }
+.mx-panel-buttons, .mx-values { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.mx-value { min-width: 62px; padding: 8px 10px; }
+.mx-value-truth { outline: 3px solid var(--mx-gold); outline-offset: 1px; }
+.mx-panel > .mx-timer { grid-column: 1 / -1; background: var(--mx-timer-track); }
+
+/* --- Protokoll und Regeln --------------------------------------------------- */
+.mx-log {
+    margin: 0;
+    padding: 8px 12px 8px 28px;
+    border-radius: 10px;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #ddd);
+    font-size: 13px;
+    color: var(--color-muted, #666);
+    max-height: 120px;
+    overflow: auto;
+}
+.mx-log[hidden] { display: none; }
+.mx-log li:first-child { color: var(--color-text, #222); }
+
+.mx-rules {
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    padding: 8px 14px;
+    font-size: 13px;
+}
+.mx-rules summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.mx-rules-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 6px 20px; margin-top: 6px; }
+.mx-rules h5 { margin: 6px 0 4px; font-size: 13px; }
+.mx-rules ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.mx-rules-table { border-collapse: collapse; width: 100%; }
+.mx-rules-table td { padding: 2px 6px; border-bottom: 1px solid var(--color-border, #eee); }
+.mx-rules-note { margin: 6px 0 0; color: var(--color-muted, #666); }
+
+/* --- Schmale Breiten -------------------------------------------------------- */
+@container (max-width: 520px) {
+    .mx-table { padding: 10px; border-width: 4px; }
+    .mx-seats { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .mx-big { font-size: 36px; }
+    .mx-panel { grid-template-columns: 1fr; }
+    .mx-panel-dice { justify-content: center; }
+    .mx-panel-buttons button { flex: 1 1 auto; }
+}

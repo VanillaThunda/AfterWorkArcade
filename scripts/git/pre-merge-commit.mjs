@@ -1,7 +1,7 @@
 /**
  * pre-merge-commit-Hook: Bevor ein Merge-Commit auf "main" entsteht, wird geprüft,
  *  1. ob das Release vollständig vorbereitet ist (Version, Changelog, Doku) und
- *  2. ob die schnellen Tests bestehen (API, Revierkampf- und Schocken-Logik, ~7 s).
+ *  2. ob die schnellen Tests bestehen (API, Revierkampf-, Schocken- und Mäxchen-Logik, ~7 s).
  * Auf anderen Branches passiert nichts. Der volle Testlauf (inkl. UI) läuft vorher
  * in scripts/release.mjs im Ordner dev\.
  */
@@ -18,7 +18,7 @@ const { version, errors } = checkWorktree(root);
 if (errors.length > 0) fail(`Merge nach main abgebrochen – Release ${version} ist nicht vollständig:`, errors);
 
 console.log(`Merge nach main (v${version}): schnelle Tests …`);
-for (const file of ["api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs"]) {
+for (const file of ["api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs", "maexchen.test.mjs"]) {
     const result = spawnSync(process.execPath, [path.join(root, "tests", file)], { cwd: root, encoding: "utf8" });
     if (result.status !== 0) {
         process.stdout.write(result.stdout);

@@ -1,11 +1,12 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.6.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.7.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
-Echtzeit-Strategiespiel **Revierkampf** und das Kneipen-Würfelspiel **Schocken**.
+Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken** und das
+Bluff-Würfelspiel **Mäxchen**.
 
 ---
 
@@ -18,7 +19,7 @@ Echtzeit-Strategiespiel **Revierkampf** und das Kneipen-Würfelspiel **Schocken*
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel, Revierkampf, Schocken](#8-spiele-risiko-würfel-revierkampf-schocken)
+8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -163,6 +164,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ game-ticker.js       Spiel-Takt für Echtzeitspiele (ruft tick() auf)
 │  ├─ sync.js              welches Event geht an wen
 │  ├─ network.js           LAN-Adressen des Servers
+│  ├─ bot-names.js         zufällige Bot-Namen (🤖 + deutscher Vorname) für alle Spiele
 │  └─ api.js               API-Endpunkte und Ablauflogik
 ├─ tests/                  automatisierte Tests (siehe Abschnitt 12)
 ├─ games/
@@ -173,9 +175,12 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ revierkampf/
 │  │  ├─ game.js           Server-Teil (Karte, Truppen, Angriffe, Bots, tick)
 │  │  └─ public/           Browser-Teil (Canvas-Darstellung, client.js, style.css)
-│  └─ schocken/
-│     ├─ game.js           Server-Teil (Würfe, Wertung, Deckel, Bots, tick, viewFor)
-│     └─ public/           Browser-Teil (CSS-Würfel, client.js, style.css)
+│  ├─ schocken/
+│  │  ├─ game.js           Server-Teil (Würfe, Wertung, Deckel, Bots, tick, viewFor)
+│  │  └─ public/           Browser-Teil (CSS-Würfel, client.js, style.css)
+│  └─ maexchen/
+│     ├─ game.js           Server-Teil (Ansagen, Aufdecken, Leben, Bots, tick, viewFor je Spieler)
+│     └─ public/           Browser-Teil (Becher, CSS-Würfel, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -369,7 +374,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken
+## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen
 
 ### 8.1 Risiko-Würfel
 
@@ -523,6 +528,73 @@ Aktionen (`POST /api/game/action`):
 
 Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/schocken/game.js`.
 
+### 8.4 Mäxchen
+
+Bluff-Würfelspiel (auch „Meiern“) für 1–10 Spieler plus 0–5 Bots (höchstens 10 Teilnehmer).
+
+**Wert eines Wurfs:** Gewürfelt wird mit 2 Würfeln. Die höhere Augenzahl ist die Zehnerstelle, aus 3 und 5 wird also 53.
+Rangfolge, aufsteigend:
+- 31 < 32 < 41 < 42 < 43 < 51 < … < 65
+- < 1er-Pasch < … < 6er-Pasch
+- < **Mäxchen (2 + 1)** als höchster Wurf.
+
+**Ablauf:**
+1. **Vorbereitung:** Der Host stellt Bots (0–5) und Leben (1–5, Standard 3) ein und startet die Partie.
+   Es braucht mindestens 2 Teilnehmer. Wer beginnt, wird ausgelost.
+2. **Würfeln:** Wer am Zug ist, würfelt verdeckt. Nur er selbst sieht seinen Wurf.
+3. **Ansagen:** Er sagt einen Wert an, der **höher** sein muss als die vorige Ansage. Lügen ist erlaubt.
+   Die Oberfläche bietet alle erlaubten Werte an und markiert den echten Wert.
+4. **Der Nächste entscheidet:**
+   - **Glauben:** Er übernimmt den Becher, würfelt selbst (ohne den alten Wurf zu sehen) und muss die Ansage überbieten.
+   - **Anzweifeln:** Der Becher wird für alle aufgedeckt. Ist der echte Wurf **mindestens so hoch** wie die Ansage,
+     verliert der Zweifler ein Leben, sonst der Ansager.
+   - **Bei der Ansage Mäxchen** gibt es nur zwei Möglichkeiten:
+     - Aufdecken: Ist das Mäxchen echt, verliert der Zweifler **2 Leben**; ist es gelogen, verliert der Ansager 1 Leben.
+     - Hinnehmen: Er verliert 1 Leben, ohne aufzudecken.
+5. **Nach dem Aufdecken:** Das Ergebnis bleibt 6 s stehen. Dann beginnt eine neue Runde ohne Ansage, und zwar
+   beim Verlierer. Ist er ausgeschieden, beginnt der Nächste.
+6. **Ende:** Mit 0 Leben scheidet man aus. Wer zuletzt übrig ist, gewinnt. Die Platzierungen stehen in
+   `state.result.placements`, als Vorbereitung für Spiel-Sessions (siehe `roadmap.md`).
+
+**Zeitlimit:** 30 s pro Schritt. Danach wird automatisch gehandelt:
+- würfeln,
+- die Wahrheit ansagen bzw. den kleinsten erlaubten Wert,
+- glauben, bei Mäxchen hinnehmen.
+
+**Bots:**
+- Sie sagen meist die Wahrheit. Ist ihr Wurf zu niedrig, bluffen sie knapp darüber.
+- Sie zweifeln umso eher, je unwahrscheinlicher eine Ansage ist. Ein angesagtes Mäxchen decken sie meist auf.
+
+**Sichtbarkeit (`viewFor`):** Den Wurf unter dem Becher (`round.dice`) bekommt **nur der Werfer** (`round.holderId`).
+Alle anderen erhalten `null`. Aufgedeckte Würfe stehen öffentlich in `state.reveal`.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Partie zu.
+Wer geht, scheidet aus, und die laufende Runde beginnt ohne Lebensverlust neu.
+Bleibt nur ein Teilnehmer oder kein Mensch übrig, endet die Partie.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "bots": 2, "lives": 3 }` | Host, vor der Partie |
+| Partie starten | `{ "type": "start" }` | Host, vor der Partie |
+| Würfeln | `{ "type": "roll" }` | am Zug |
+| Ansagen | `{ "type": "announce", "value": 53 }` (`21` = Mäxchen, `11`…`66` = Pasch) | am Zug, nach dem Würfeln |
+| Glauben | `{ "type": "believe" }` | am Zug, nach einer Ansage (nicht bei Mäxchen) |
+| Anzweifeln / Aufdecken | `{ "type": "doubt" }` | am Zug, nach einer Ansage |
+| Hinnehmen | `{ "type": "accept" }` | am Zug, nur bei angesagtem Mäxchen |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Partieende |
+
+Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/maexchen/game.js`.
+
+### Bot-Namen (alle Spiele)
+
+Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
+- Vergeben werden die Namen über `pickBotNames(anzahl, namenDerMenschen)` aus `server/bot-names.js`.
+- In einer Partie ist jeder Name eindeutig, und Vornamen echter Mitspieler werden ausgelassen.
+- Das 🤖 ist Teil des Namens. Es erscheint deshalb überall: auf den Spielerplätzen, im Protokoll, in Ranglisten und auf der Revierkampf-Karte.
+- Neue Spiele mit Bots sollten die Namen ebenfalls darüber vergeben.
+
 ---
 
 ## 9. Konfiguration
@@ -638,10 +710,11 @@ Server auf Port 3000 stört also nicht.
 | `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Spieleliste (Sortierung, Vorschaubilder), Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
+| `npm run test:maexchen`  | `tests/maexchen.test.mjs`  | < 1 s  | Mäxchen-Logik direkt: Werte/Rangfolge, Ansagen, Glauben/Anzweifeln, Mäxchen-Regeln, Leben/Ausscheiden, viewFor, Timer, Bots, Verlassen; Bot-Namen (`server/bot-names.js`) |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~90 s  | alle sechs nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~100 s | alle sieben nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

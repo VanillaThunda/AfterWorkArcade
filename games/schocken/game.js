@@ -27,6 +27,7 @@
  */
 
 const crypto = require("crypto");
+const { pickBotNames } = require("../../server/bot-names");
 
 // ===========================================================================
 // Einstellungen
@@ -433,10 +434,11 @@ function startMatch(state, now) {
         throw new Error("Schocken braucht mindestens 2 Teilnehmer – füge Bots hinzu.");
     }
 
+    const botNames = pickBotNames(botCount, humans.map(h => h.name));
     state.participants = [
         ...humans.map(m => ({ id: m.id, name: m.name, bot: false, chips: 0, marker: false, left: false })),
         ...Array.from({ length: botCount }, (_, i) => ({
-            id: `bot-${i + 1}`, name: `Bot ${i + 1}`, bot: true, chips: 0, marker: false, left: false
+            id: `bot-${i + 1}`, name: botNames[i], bot: true, chips: 0, marker: false, left: false
         }))
     ];
     state.phase = "playing";

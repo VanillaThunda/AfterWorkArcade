@@ -460,6 +460,43 @@ await test("Reload bekommt ebenfalls die gefilterte Sicht", async () => {
 });
 
 // ===========================================================================
+section("Spiel: Mäxchen (Wurf nur für den Werfer sichtbar)");
+// ===========================================================================
+await test("Mäxchen starten (ohne Bots)", async () => {
+    const selected = streamBen.next(e => e.type === "game-state" && e.data?.gameId === "maexchen", "Mäxchen-Zustand");
+    assert.equal((await call("POST", "/api/game/select", { gameId: "maexchen" }, anna.token)).status, 200);
+    assert.equal((await selected).data.state.phase, "setup");
+    assert.equal((await gameAction({ type: "settings", bots: 0, lives: 2 }, anna.token)).status, 200);
+    const started = streamBen.next(e => e.type === "game-state" && e.data?.state.phase === "playing", "Partie läuft");
+    assert.equal((await gameAction({ type: "start" }, anna.token)).status, 200);
+    const state = (await started).data.state;
+    assert.equal(state.round.stage, "roll");
+    assert.ok(state.participants.every(p => p.lives === 2));
+});
+await test("Würfel gehen nur an den Werfer, Aufdecken zeigt sie allen", async () => {
+    const { state } = streamBen.events.filter(e => e.type === "game-state" && e.data?.gameId === "maexchen").at(-1).data;
+    const rollerId = state.round.order[0];
+    const otherId = state.round.order[1];
+
+    const ownEvent = streams[rollerId].next(e => e.type === "game-state" && e.data?.state.round?.stage === "announce", "eigener Wurf");
+    const otherEvent = streams[otherId].next(e => e.type === "game-state" && e.data?.state.round?.stage === "announce", "fremder Wurf");
+    assert.equal((await gameAction({ type: "roll" }, players[rollerId].token)).status, 200);
+    const own = (await ownEvent).data.state.round.dice;
+    assert.ok(Array.isArray(own) && own.every(v => v >= 1 && v <= 6), "Werfer sieht seinen Wurf");
+    assert.equal((await otherEvent).data.state.round.dice, null, "Mitspieler sieht ihn nicht");
+    assert.equal((await gameAction({ type: "roll" }, players[otherId].token)).status, 400, "falscher Spieler");
+
+    assert.equal((await gameAction({ type: "announce", value: 65 }, players[rollerId].token)).status, 200);
+    const revealEvent = streams[otherId].next(e => e.type === "game-state" && e.data?.state.round?.stage === "reveal", "Aufdecken");
+    assert.equal((await gameAction({ type: "doubt" }, players[otherId].token)).status, 200);
+    assert.deepEqual((await revealEvent).data.state.reveal.dice, own, "aufgedeckte Würfel für alle");
+
+    const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
+    await call("POST", "/api/game/end", {}, anna.token);
+    await ended;
+});
+
+// ===========================================================================
 section("Host-Wechsel, Lobby löschen, Beitritt per Code");
 // ===========================================================================
 await test("Host verlässt Lobby → Ben wird Host", async () => {

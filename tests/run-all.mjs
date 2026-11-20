@@ -7,7 +7,7 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const TESTS = ["git.test.mjs", "api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs", "maexchen.test.mjs", "reconnect.test.mjs", "ui.test.mjs"];
+const TESTS = ["git.test.mjs", "api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs", "maexchen.test.mjs", "lichtrenner.test.mjs", "reconnect.test.mjs", "ui.test.mjs"];
 const failed = [];
 
 for (const file of TESTS) {

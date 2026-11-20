@@ -1,0 +1,104 @@
+/*
+ * Lichtrenner – Styles.
+ * Alle Klassen beginnen mit "lr-". Die Arena ist bewusst immer dunkel
+ * (Leuchtspuren); alles daneben nutzt die Theme-Variablen.
+ */
+
+.lr-root { container-type: inline-size; }
+
+.lr {
+    display: grid;
+    gap: 14px;
+}
+
+/* --- Arena ------------------------------------------------------------------- */
+.lr-arena {
+    position: relative;
+    /* So breit wie möglich, aber nie höher als der sichtbare Bereich */
+    width: 100%;
+    max-width: max(320px, calc((100vh - 300px) * 1.6));
+    margin: 0 auto;
+    box-sizing: border-box;
+    border-radius: 14px;
+    border: 3px solid #1d2a4d;
+    background: #0b0f1a;
+    box-shadow: 0 0 24px rgba(8, 217, 214, 0.15), inset 0 0 30px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+}
+.lr-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 64 / 40;
+    image-rendering: pixelated;
+}
+
+.lr-countdown {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: clamp(56px, 12cqi, 140px);
+    font-weight: 800;
+    color: #ffffff;
+    text-shadow: 0 0 24px #08d9d6, 0 0 6px #08d9d6;
+    pointer-events: none;
+}
+.lr-countdown[hidden] { display: none; }
+
+.lr-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: rgba(5, 8, 16, 0.55);
+}
+.lr-overlay[hidden] { display: none; }
+.lr-overlay-box {
+    max-width: 420px;
+    max-height: 100%;
+    overflow: auto;
+    padding: 18px 22px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+.lr-overlay-box h3 { margin: 0 0 8px; }
+.lr-overlay-box p { margin: 6px 0; font-size: 14px; }
+.lr-setup { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 12px 0; }
+.lr-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.lr-placements { text-align: left; display: inline-block; margin: 4px 0 10px; }
+.lr-muted { color: var(--color-muted, #666); font-size: 13px; }
+
+/* --- Seitenleiste ---------------------------------------------------------- */
+.lr-side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+.lr-box { display: grid; gap: 8px; }
+.lr-box h4 { margin: 0; }
+.lr-scores { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.lr-scores li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.lr-scores li.lr-out { opacity: 0.45; }
+.lr-swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; box-shadow: 0 0 6px currentColor; }
+.lr-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-wins { letter-spacing: 1px; color: var(--color-text, #222); }
+.lr-hint { margin: 4px 0; font-size: 13px; color: var(--color-muted, #666); }
+.lr-log {
+    margin: 0;
+    padding: 6px 10px 6px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    font-size: 13px;
+    color: var(--color-muted, #666);
+    max-height: 140px;
+    overflow: auto;
+}
+.lr-log li:first-child { color: var(--color-text, #222); }

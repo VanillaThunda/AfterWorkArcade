@@ -73,7 +73,6 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Kurzidee | Lernzeit | Spieler | Aufwand | Wiederverwendung |
 |---|---|---|---|---|---|---|
-| 4 | **Mäxchen (Meiern)** | Traditionelles Bluff-Würfelspiel: verdeckt würfeln, ansagen, man darf lügen. Der Nächste glaubt oder deckt auf. | 1 min | 2–10 + Bots | klein | Schocken: Becher, Würfel, `viewFor`, Bots |
 | 5 | **Lichtrenner** | Lichtspur-Genre: Alle fahren gleichzeitig und ziehen eine Spur. Wer eine Wand oder Spur trifft, scheidet aus. | 30 s | 2–8 + Bots | klein | Revierkampf: Canvas, Tick, Bots |
 | 6 | **Fünf-Würfel-Poker** | Yacht-Genre: 13 Kategorien, 3 Würfe pro Zug, Punktzettel | 3 min | 1–8 | klein–mittel | Schocken-Würfel |
 | 7 | **Schiffe versenken** | Traditionell: Flotte setzen, abwechselnd schießen | 1 min | 2 (bzw. Turnier) | klein | `viewFor` für die verdeckte Flotte |
@@ -92,7 +91,7 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 - **Komplexe Strategie (z. B. im Stil von Siedler):** Lernzeit und Spieldauer sind für einen Feierabend zu lang.
 
 #### Empfohlene Reihenfolge
-1. **Mäxchen:** schnell gebaut dank der Schocken-Bausteine. Es liefert ein klares Ergebnis für die spätere Spiel-Session.
+1. ~~**Mäxchen**~~ – umgesetzt in 0.7.0.
 2. **Lichtrenner:** das einfachste Echtzeitspiel. Es testet schnellen Tick und Tastatursteuerung für das Bomben-Labyrinth.
 3. **Bomben-Labyrinth:** das Highlight aus den gewünschten Genres.
 4. **Artillerie-Duell,** danach **Burgen-Duell** als Modus davon.

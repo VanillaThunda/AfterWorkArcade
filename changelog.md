@@ -8,6 +8,28 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.7.0] – 2026-11-20
+
+### Hinzugefügt
+- **Neues Spiel: Mäxchen** (Bluff-Würfelspiel, 1–10 Spieler plus 0–5 Bots).
+  - Ablauf: verdeckt würfeln, eine höhere Ansage machen (auch gelogen), dann glauben oder anzweifeln.
+  - Bei Mäxchen: aufdecken (echt → Zweifler −2 Leben) oder hinnehmen (−1 Leben).
+  - Leben einstellbar (1–5). Wer ausscheidet, ist raus; der Letzte gewinnt, dazu gibt es eine Platzierungsliste.
+  - Oberfläche: Becher-Animation, Raster mit den erlaubten Ansagen (die Wahrheit ist markiert), Aufdeckung mit Würfeln, Zugtimer, Regeln kurz & knapp, Dark Mode.
+  - Den Wurf unter dem Becher bekommt nur der Werfer übertragen (`viewFor` je Spieler).
+- Test `tests/maexchen.test.mjs` (`npm run test:maexchen`). Er läuft auch beim Merge nach main mit.
+- `server/bot-names.js` für Bot-Namen in allen Spielen.
+
+### Geändert
+- **Bots heißen jetzt nach zufälligen deutschen Vornamen**, z. B. „🤖 Lena“, „🤖 Moritz“.
+  - Das gilt für Revierkampf, Schocken und Mäxchen.
+  - Namen sind pro Partie eindeutig, und Vornamen echter Mitspieler werden nicht vergeben.
+  - Das 🤖 steht jetzt überall, auch im Protokoll, in Ranglisten und auf der Revierkampf-Karte.
+- Neue Vorschaubilder mit den neuen Bot-Namen.
+- `roadmap.md`: Recherche zu weiteren Spielen ergänzt; Mäxchen ist erledigt.
+
+---
+
 ## [0.6.0] – 2026-11-19
 
 ### Hinzugefügt

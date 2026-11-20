@@ -332,9 +332,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 3, "3 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 4, "4 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 3`, "3 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 4`, "4 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -703,6 +703,55 @@ await test("Host beendet Schocken → zurück in der Lobby", async () => {
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".sk")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".sk")`, "Spiel weg bei Anna");
+});
+
+section("Mäxchen");
+
+await test("Host startet Mäxchen → Setup bei beiden", async () => {
+    await startGame(anna, "maexchen");
+    await anna.waitFor(`document.querySelector('.mx[data-phase="setup"] .mx-start')`, "Setup mit Start-Button bei Anna");
+    await ben.waitFor(`document.querySelector('.mx[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".mx-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".mx-bots"); s.value = "0"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".mx-overlay").textContent.includes("Bots: 0")`, "Bens Anzeige: 0 Bots");
+    await anna.click(".mx-start");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.mx[data-phase="playing"]')`, "Partie läuft");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".mx-seat").length;`), 2);
+});
+await test("Würfeln: nur der Werfer sieht den Wurf, Anzweifeln deckt für beide auf", async () => {
+    await anna.waitFor(`document.querySelector(".mx-roll") || document.querySelector(".mx-panel-info")?.textContent.includes("ist am Zug")`, "Zug verteilt");
+    const annaFirst = await anna.eval(`return !!document.querySelector(".mx-roll");`);
+    const [roller, other] = annaFirst ? [anna, ben] : [ben, anna];
+
+    await roller.click(".mx-roll");
+    await roller.waitFor(`document.querySelectorAll(".mx-panel-dice .mx-die").length === 2`, "eigene Würfel sichtbar");
+    await roller.waitFor(`document.querySelector(".mx-cup.mx-shake")`, "Becher wackelt");
+    await other.waitFor(`document.querySelector(".mx-seat-info")?.parentElement && [...document.querySelectorAll(".mx-seat-info")].some(e => e.textContent.includes("sagt an"))`, "Mitspieler sieht: sagt an");
+    assert.equal(await other.eval(`return document.querySelectorAll(".mx-die").length;`), 0, "Mitspieler sieht keine Würfel");
+    assert.ok(await roller.eval(`return document.querySelectorAll(".mx-value").length;`) === 21, "alle 21 Werte ansagbar");
+
+    await roller.eval(`document.querySelectorAll(".mx-value")[13].click();`); // 65 ansagen
+    await other.waitFor(`document.querySelector(".mx-doubt")`, "Entscheidung beim Mitspieler");
+    assert.equal(await other.text(".mx-big"), "65");
+    await other.screenshot("18-maexchen.png");
+    await other.click(".mx-doubt");
+    for (const page of [anna, ben]) {
+        await page.waitFor(`document.querySelector(".mx-reveal-box .mx-die")`, "Aufdeckung mit Würfeln");
+    }
+    assert.ok(/Stimmt!|Gelogen!/.test(await anna.text(".mx-reveal-box h4")));
+    assert.equal(await anna.eval(`return document.querySelectorAll(".mx-seat-loser").length;`), 1, "Verlierer markiert");
+});
+await test("Mäxchen im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".mx-panel") < 60, "Aktionsbereich dunkel");
+    await ben.screenshot("19-maexchen-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Mäxchen → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".mx")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".mx")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

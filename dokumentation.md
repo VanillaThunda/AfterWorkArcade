@@ -1,12 +1,12 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.7.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.8.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
-Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken** und das
-Bluff-Würfelspiel **Mäxchen**.
+Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
+Bluff-Würfelspiel **Mäxchen** und das Echtzeit-Lichtspurspiel **Lichtrenner**.
 
 ---
 
@@ -19,7 +19,7 @@ Bluff-Würfelspiel **Mäxchen**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen)
+8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -178,9 +178,12 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ schocken/
 │  │  ├─ game.js           Server-Teil (Würfe, Wertung, Deckel, Bots, tick, viewFor)
 │  │  └─ public/           Browser-Teil (CSS-Würfel, client.js, style.css)
-│  └─ maexchen/
-│     ├─ game.js           Server-Teil (Ansagen, Aufdecken, Leben, Bots, tick, viewFor je Spieler)
-│     └─ public/           Browser-Teil (Becher, CSS-Würfel, client.js, style.css)
+│  ├─ maexchen/
+│  │  ├─ game.js           Server-Teil (Ansagen, Aufdecken, Leben, Bots, tick, viewFor je Spieler)
+│  │  └─ public/           Browser-Teil (Becher, CSS-Würfel, client.js, style.css)
+│  └─ lichtrenner/
+│     ├─ game.js           Server-Teil (Bewegung pro Tick, Kollisionen, Runden, Bots, viewFor)
+│     └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -193,6 +196,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
       ├─ theme.js          Hell/Dunkel-Schalter (data-theme, Event awa-themechange)
       ├─ game-loader.js    lädt/entlädt den Client-Teil eines Spiels
       ├─ game-picker.js    Spielauswahl-Dialog mit Kacheln
+      ├─ game-kit/         gemeinsame Bausteine für Spiele: controls.js (Tastatur/Touch-Steuerung)
       └─ views/            login.js, lobby-list.js, lobby-room.js
 ```
 
@@ -371,10 +375,24 @@ Wichtig:
   `:root[data-theme="dark"] .quiz { --quiz-accent: #64b5f6; }`.
   Wer per Canvas zeichnet, liest Farben per `getComputedStyle` und hört auf das Event
   `awa-themechange` am `document` (Beispiel: Revierkampf).
+- **Steuerung für Echtzeitspiele:** `public/js/game-kit/controls.js` stellt Pfeiltasten/WASD,
+  ein Touch-Steuerkreuz und Wischgesten bereit (Beispiel: Lichtrenner):
+  ```js
+  import { createDirectionalControls } from "/js/game-kit/controls.js";
+  const controls = createDirectionalControls({
+      onDirection: dir => ctx.sendAction({ type: "turn", dir }),   // "up" | "down" | "left" | "right"
+      isActive: () => state?.phase === "running",
+      swipeTarget: canvas                                          // optional
+  });
+  container.append(controls.element);   // Steuerkreuz, nur auf Touch-Geräten sichtbar
+  // in destroy(): controls.destroy();
+  ```
+  Tasten werden ignoriert, solange ein Eingabefeld (z. B. der Chat) oder ein Dialog den Fokus hat.
+  Behandelte Tasten scrollen die Seite nicht.
 
 ---
 
-## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen
+## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner
 
 ### 8.1 Risiko-Würfel
 
@@ -587,6 +605,55 @@ Aktionen (`POST /api/game/action`):
 
 Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/maexchen/game.js`.
 
+### 8.5 Lichtrenner
+
+Echtzeitspiel im Lichtspur-Genre für 1–8 Spieler plus 0–7 Bots (höchstens 8 Teilnehmer).
+
+**Ablauf:**
+1. **Vorbereitung:** Der Host stellt Bots (0–7, Standard 3) und die Zahl der Siege zum Gewinnen
+   (1–5, Standard 3) ein und startet. Es braucht mindestens 2 Teilnehmer.
+2. **Countdown (3 s):** Die Startpunkte liegen gleichmäßig auf einer Ellipse, jeweils mit Blick
+   zur Mitte. Pfeile zeigen die Richtung, und am eigenen Startpunkt steht „Du“.
+   Die Startrichtung lässt sich noch ändern, aber nicht umkehren.
+3. **Runde:** Die Arena ist 64 × 40 Felder groß. Alle 100 ms (Tick) fährt jeder 1 Feld weiter und hinterlässt eine Spur,
+   die bis zum Rundenende liegen bleibt.
+   - Lenken mit Pfeiltasten oder WASD, auf dem Handy mit Steuerkreuz oder Wischen.
+   - Eine Umkehr in die eigene Spur wird ignoriert.
+   - Der Server merkt sich bis zu 2 Eingaben und übernimmt eine pro Tick. Schnelle Doppelkurven gehen also nicht verloren.
+4. **Crash:** Wer gegen die Wand oder eine Spur (auch die eigene) fährt, scheidet für die Runde aus.
+   Fahren zwei gleichzeitig ins selbe Feld, scheiden beide aus. Die Absturzstelle zeigt ein ✖.
+5. **Rundenende:** Fährt höchstens noch einer, endet die Runde. Der Überlebende bekommt 1 Sieg;
+   crashen alle gleichzeitig, ist es ein Unentschieden.
+   - Nach 120 s endet eine Runde als Unentschieden.
+   - Danach 3 s Pause, dann der nächste Countdown.
+6. **Ende:** Wer zuerst die eingestellte Zahl Siege hat, gewinnt.
+   - Die Platzierungen (nach Siegen, bei Gleichstand nach Überlebenszeit) stehen in `state.result.placements`.
+
+**Bots** prüfen bei jedem Tick geradeaus, links und rechts:
+- Sie messen per Breitensuche (bis 300 Felder), wie viel freie Fläche dahinter erreichbar ist.
+- Felder direkt neben fremden Köpfen meiden sie.
+- Ein wenig Zufall macht sie weniger vorhersehbar.
+
+**Übertragung:**
+- Die Arena ist ein Text mit einem Zeichen pro Feld (`.` frei, `A`–`H` Spur von Spieler 0–7, ca. 2,5 KB).
+  Er geht bei jedem Tick mit.
+- `viewFor` ersetzt absolute Zeitpunkte durch Restzeiten (`countdownMs`, `roundOverMs`) und lässt die
+  Eingabe-Warteschlange weg.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Partie zu.
+Wer geht, crasht sofort. Bleibt nur ein Teilnehmer oder kein Mensch übrig, endet die Partie.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "bots": 3, "wins": 3 }` | Host, vor der Partie |
+| Partie starten | `{ "type": "start" }` | Host, vor der Partie |
+| Lenken | `{ "type": "turn", "dir": "up" }` (`up`/`down`/`left`/`right`) | eigene Figur, im Countdown oder in der Runde |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Partieende |
+
+Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/lichtrenner/game.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -711,10 +778,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:maexchen`  | `tests/maexchen.test.mjs`  | < 1 s  | Mäxchen-Logik direkt: Werte/Rangfolge, Ansagen, Glauben/Anzweifeln, Mäxchen-Regeln, Leben/Ausscheiden, viewFor, Timer, Bots, Verlassen; Bot-Namen (`server/bot-names.js`) |
+| `npm run test:lichtrenner` | `tests/lichtrenner.test.mjs` | ~1 s | Lichtrenner-Logik direkt: Startpunkte, Bewegung, Crash (Wand, Spuren, gleiches Feld), Umkehr, Doppelkurve, Runden/Siege, Zeitgrenze, Bots, Verlassen, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~100 s | alle sieben nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~110 s | alle acht nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

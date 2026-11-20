@@ -373,6 +373,8 @@ await test("„Weiter“: Schwelle 75 %, Doppelklick zählt nicht, Bots zählen 
     // 1 Mensch + Bot: ein Klick reicht
     setRandom(null);
     let solo = startMatch({ players: [anna], bots: 1 });
+    const botName = solo.participants.find(p => p.bot).name;
+    assert.ok(botName.startsWith("🤖 ") && !/Bot \d/.test(botName), `Bot mit Vornamen: ${botName}`);
     let now = NOW;
     while (solo.round.stage === "turns") {
         now += 1000;

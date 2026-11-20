@@ -282,7 +282,7 @@ export function mount(container, ctx) {
 
             // Kopfzeile: Name, Markierung, Deckel
             const top = createElement("div", "sk-seat-top");
-            const name = createElement("span", "sk-seat-name", (p.bot ? "🤖 " : "") + p.name + (p.id === ctx.me.id ? " (du)" : ""));
+            const name = createElement("span", "sk-seat-name", p.name +(p.id === ctx.me.id ? " (du)" : ""));
             top.append(name);
             if (p.marker) {
                 const marker = createElement("span", "sk-marker", "M");

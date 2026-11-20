@@ -260,7 +260,7 @@ export function mount(container, ctx) {
 
             const top = createElement("div", "mx-seat-top");
             const name = createElement("span", "mx-seat-name",
-                `${participant.bot ? "🤖 " : ""}${participant.name}${participant.id === ctx.me.id ? " (du)" : ""}`);
+                `${participant.name}${participant.id === ctx.me.id ? " (du)" : ""}`); // Bots: "🤖 Name" vom Server
             top.append(name);
 
             const lives = createElement("span", "mx-lives");

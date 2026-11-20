@@ -19,6 +19,8 @@
  * (siehe dokumentation.md, Abschnitt "Neues Spiel hinzufügen").
  */
 
+const { pickBotNames } = require("../../server/bot-names");
+
 // ===========================================================================
 // Einstellungen
 // ===========================================================================
@@ -487,10 +489,11 @@ function startRound(state, now) {
     const rng = createRng(state.rng);
     const cells = generateMap(rng);
 
+    const botNames = pickBotNames(botCount, humans.map(h => h.name));
     state.players = [
         ...humans.map((member, i) => createPlayer(i, { ...member, bot: false })),
         ...Array.from({ length: botCount }, (_, i) =>
-            createPlayer(humans.length + i, { id: `bot-${i + 1}`, name: `Bot ${i + 1}`, bot: true }))
+            createPlayer(humans.length + i, { id: `bot-${i + 1}`, name: botNames[i], bot: true }))
     ];
 
     // Bots setzen ihren Startpunkt sofort – so sehen Menschen, wo schon jemand ist.

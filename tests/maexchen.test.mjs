@@ -303,5 +303,33 @@ await test("Letzter Mensch geht → Partie endet", async () => {
     assert.equal(state.phase, "finished");
 });
 
+// ===========================================================================
+section("Bot-Namen (server/bot-names.js)");
+// ===========================================================================
+const { pickBotNames, BOT_PREFIX } = require(path.join(PROJECT_ROOT, "server", "bot-names.js"));
+
+await test("Zufällige deutsche Vornamen mit 🤖, keine doppelten", async () => {
+    const names = pickBotNames(5);
+    assert.equal(names.length, 5);
+    assert.equal(new Set(names).size, 5, "eindeutig");
+    for (const name of names) {
+        assert.ok(name.startsWith(BOT_PREFIX), name);
+        assert.doesNotMatch(name, /Bot \d/);
+    }
+});
+await test("Vornamen echter Spieler werden nicht vergeben", async () => {
+    for (let i = 0; i < 200; i++) {
+        const names = pickBotNames(5, ["anna", "Ben"]);
+        assert.ok(!names.includes(`${BOT_PREFIX}Anna`) && !names.includes(`${BOT_PREFIX}Ben`), names.join(", "));
+    }
+});
+await test("Bots in Mäxchen tragen die neuen Namen", async () => {
+    const state = startMatch({ players: [anna], bots: 3 });
+    const bots = state.participants.filter(p => p.bot);
+    assert.equal(bots.length, 3);
+    assert.ok(bots.every(p => p.name.startsWith(BOT_PREFIX) && p.name.length > BOT_PREFIX.length));
+    assert.equal(new Set(bots.map(p => p.name)).size, 3);
+});
+
 setRandom();
 process.exit(summary());

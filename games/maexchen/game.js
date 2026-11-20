@@ -24,6 +24,7 @@
  */
 
 const crypto = require("crypto");
+const { pickBotNames } = require("../../server/bot-names");
 
 // ===========================================================================
 // Einstellungen
@@ -315,7 +316,8 @@ function finishMatch(state, winnerId, note) {
 
 function startMatch(state, now) {
     const humans = state.members.map(m => ({ id: m.id, name: m.name, bot: false }));
-    const bots = Array.from({ length: state.settings.bots }, (_, i) => ({ id: `bot-${i + 1}`, name: `Bot ${i + 1}`, bot: true }));
+    const botNames = pickBotNames(state.settings.bots, humans.map(h => h.name));
+    const bots = botNames.map((name, i) => ({ id: `bot-${i + 1}`, name, bot: true }));
     const all = [...humans, ...bots].slice(0, MAX_PARTICIPANTS);
     if (all.length < 2) throw new Error("Es werden mindestens 2 Teilnehmer gebraucht – füge Bots hinzu.");
 

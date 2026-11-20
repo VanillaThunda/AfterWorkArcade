@@ -131,6 +131,7 @@ await test("Start: Karte, Teilnehmer, Bots haben Startpunkte", async () => {
     assert.equal(state.players.length, 5);
     assert.deepEqual(state.players.map(p => p.bot), [false, false, true, true, true]);
     assert.ok(state.players.filter(p => p.bot).every(p => p.spawn && p.cells > 0));
+    assert.ok(state.players.filter(p => p.bot).every(p => p.name.startsWith("🤖 ") && !/Bot \d/.test(p.name)), "Bots mit Vornamen");
     assert.equal(state.spawnEndsAt, HOST.now + 10_000);
 });
 await test("Startpunkt: Wasser und zu nah → Fehler, gültig → Revier", async () => {

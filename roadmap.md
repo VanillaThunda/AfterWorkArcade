@@ -73,7 +73,6 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Kurzidee | Lernzeit | Spieler | Aufwand | Wiederverwendung |
 |---|---|---|---|---|---|---|
-| 5 | **Lichtrenner** | Lichtspur-Genre: Alle fahren gleichzeitig und ziehen eine Spur. Wer eine Wand oder Spur trifft, scheidet aus. | 30 s | 2–8 + Bots | klein | Revierkampf: Canvas, Tick, Bots |
 | 6 | **Fünf-Würfel-Poker** | Yacht-Genre: 13 Kategorien, 3 Würfe pro Zug, Punktzettel | 3 min | 1–8 | klein–mittel | Schocken-Würfel |
 | 7 | **Schiffe versenken** | Traditionell: Flotte setzen, abwechselnd schießen | 1 min | 2 (bzw. Turnier) | klein | `viewFor` für die verdeckte Flotte |
 
@@ -92,15 +91,13 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 #### Empfohlene Reihenfolge
 1. ~~**Mäxchen**~~ – umgesetzt in 0.7.0.
-2. **Lichtrenner:** das einfachste Echtzeitspiel. Es testet schnellen Tick und Tastatursteuerung für das Bomben-Labyrinth.
+2. ~~**Lichtrenner**~~ – umgesetzt in 0.8.0.
 3. **Bomben-Labyrinth:** das Highlight aus den gewünschten Genres.
 4. **Artillerie-Duell,** danach **Burgen-Duell** als Modus davon.
 5. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
 
-**Gemeinsame Vorarbeit für Echtzeitspiele:** ein Baustein für die Steuerung.
-- Tastatur (Pfeiltasten/WASD), aktiv nur, solange der Fokus nicht in einem Eingabefeld wie dem Chat liegt.
-- Touch-Steuerung mit einem Steuerkreuz für Handys.
-- Neue Spiele nutzen diesen Baustein gemeinsam.
+**Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
+`public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Das Bomben-Labyrinth nutzt ihn mit.
 
 ### Spielauswahl bei vielen Spielen
 - Kategorien/Tags pro Spiel (`meta.tags`, z. B. „Würfel“, „Echtzeit“, „Karten“, „Strategie“) als Filter-Chips im Auswahl-Dialog.

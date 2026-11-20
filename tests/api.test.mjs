@@ -445,14 +445,17 @@ await test("„Weiter“ von beiden Spielern startet die nächste Runde sofort",
     const acked = streamBen.next(e => e.type === "game-state" && e.data?.state.reveal?.acks.length === 1, "1 Klick");
     assert.equal((await gameAction({ type: "continue" }, anna.token)).status, 200);
     assert.equal((await acked).data.state.round.stage, "reveal");
-    const nextRound = streamBen.next(e => e.type === "game-state" && e.data?.state.round.stage === "turns", "nächste Runde");
+    // Echter Zufall: Ein „Schock Aus“ (1-1-1) beendet die Partie im Modus „half“ sofort –
+    // dann gibt es statt der nächsten Runde das Partie-Ende. Beides ist korrekt.
+    const nextRound = streamBen.next(e => e.type === "game-state"
+        && (e.data?.state.round?.stage === "turns" || e.data?.state.phase === "finished"), "nächste Runde oder Partie-Ende");
     assert.equal((await gameAction({ type: "continue" }, ben.token)).status, 200);
     await nextRound;
 });
 await test("Reload bekommt ebenfalls die gefilterte Sicht", async () => {
     const reloaded = openEventStream(BASE, ben.token);
     const event = await reloaded.waitFor(e => e.type === "game-state" && e.data?.gameId === "schocken", "Schocken nach Reload");
-    assert.equal(event.data.state.round.turnEndsAt, undefined, "interne Zeitstempel werden nicht übertragen");
+    assert.equal(event.data.state.round?.turnEndsAt, undefined, "interne Zeitstempel werden nicht übertragen");
     reloaded.close();
     const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
     await call("POST", "/api/game/end", {}, anna.token);
@@ -491,6 +494,34 @@ await test("Würfel gehen nur an den Werfer, Aufdecken zeigt sie allen", async (
     assert.equal((await gameAction({ type: "doubt" }, players[otherId].token)).status, 200);
     assert.deepEqual((await revealEvent).data.state.reveal.dice, own, "aufgedeckte Würfel für alle");
 
+    const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
+    await call("POST", "/api/game/end", {}, anna.token);
+    await ended;
+});
+
+// ===========================================================================
+section("Spiel: Lichtrenner (Echtzeit mit Tick und Lenken)");
+// ===========================================================================
+await test("Lichtrenner starten: Countdown, dann läuft die Runde per Tick", async () => {
+    const selected = streamBen.next(e => e.type === "game-state" && e.data?.gameId === "lichtrenner", "Lichtrenner-Zustand");
+    assert.equal((await call("POST", "/api/game/select", { gameId: "lichtrenner" }, anna.token)).status, 200);
+    assert.equal((await selected).data.state.phase, "setup");
+    assert.equal((await gameAction({ type: "settings", bots: 1, wins: 1 }, anna.token)).status, 200);
+    const countdown = streamBen.next(e => e.type === "game-state" && e.data?.state.phase === "countdown", "Countdown");
+    assert.equal((await gameAction({ type: "start" }, anna.token)).status, 200);
+    const state = (await countdown).data.state;
+    assert.equal(state.players.length, 3);
+    assert.ok(state.countdownMs > 0, "Restzeit statt Zeitstempel");
+    assert.equal(state.phaseEndsAt, undefined);
+    assert.equal(typeof state.grid, "string");
+    await streamBen.next(e => e.type === "game-state" && e.data?.state.phase === "running", "Runde läuft", 5000);
+});
+await test("Lenken: gültige Richtung 200, ungültige 400", async () => {
+    const { state } = streamBen.events.filter(e => e.type === "game-state" && e.data?.gameId === "lichtrenner").at(-1).data;
+    const self = state.players.find(p => p.id === anna.user.id);
+    const turn = { up: "left", left: "down", down: "right", right: "up" }[self.dir];
+    assert.equal((await gameAction({ type: "turn", dir: turn }, anna.token)).status, 200);
+    assert.equal((await gameAction({ type: "turn", dir: "quer" }, anna.token)).status, 400);
     const ended = streamBen.next(e => e.type === "game-state" && e.data === null, "Spiel beendet");
     await call("POST", "/api/game/end", {}, anna.token);
     await ended;

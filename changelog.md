@@ -8,6 +8,27 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.8.0] – 2026-11-20
+
+### Hinzugefügt
+- **Neues Spiel: Lichtrenner** (Echtzeit, 1–8 Spieler plus 0–7 Bots).
+  - Alle fahren gleichzeitig und ziehen eine leuchtende Spur. Wer gegen Wand oder Spur fährt, scheidet aus.
+  - Der Letzte gewinnt die Runde, wer zuerst die eingestellte Zahl Siege (1–5) hat, die Partie.
+  - Countdown mit Startrichtung, Doppelkurven dank Eingabe-Warteschlange.
+  - Bots weichen per Flächensuche aus.
+  - Leuchtende Canvas-Arena, Punktestand, Protokoll, Platzierungen.
+- **Gemeinsamer Steuerungs-Baustein** `public/js/game-kit/controls.js`.
+  - Pfeiltasten/WASD, Touch-Steuerkreuz und Wischen.
+  - Ignoriert Eingaben im Chat und in Dialogen, und die Pfeiltasten scrollen nicht.
+  - Nutzbar für alle künftigen Echtzeitspiele.
+- Test `tests/lichtrenner.test.mjs` (`npm run test:lichtrenner`). Er läuft auch beim Merge nach main mit.
+- Der UI-Test kann echte Tastendrücke senden (`page.press`).
+
+### Behoben
+- Ein seltener Fehlschlag im Schocken-API-Test: Bei einem zufälligen „Schock Aus“ endet die Partie im Modus „halb“ sofort, und das gilt jetzt als korrekt.
+
+---
+
 ## [0.7.0] – 2026-11-20
 
 ### Hinzugefügt

@@ -176,7 +176,14 @@ async function openPage(cdp, label) {
         click: selector => page.eval(`document.querySelector(${JSON.stringify(selector)}).click();`),
         clickText: (selector, text) => page.eval(`
             [...document.querySelectorAll(${JSON.stringify(selector)})]
-                .find(e => e.textContent.trim() === ${JSON.stringify(text)}).click();`)
+                .find(e => e.textContent.trim() === ${JSON.stringify(text)}).click();`),
+        /** Echter Tastendruck über CDP (landet beim fokussierten Element). */
+        async press(key) {
+            const codes = { ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, w: 87, a: 65, s: 83, d: 68 };
+            const base = { key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key, windowsVirtualKeyCode: codes[key] };
+            await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", ...base, text: key.length === 1 ? key : undefined }, sessionId);
+            await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...base }, sessionId);
+        }
     };
 
     await page.viewport(1400, 1000);
@@ -332,9 +339,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 4, "4 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 5, "5 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 4`, "4 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 5`, "5 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -752,6 +759,72 @@ await test("Host beendet Mäxchen → zurück in der Lobby", async () => {
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".mx")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".mx")`, "Spiel weg bei Anna");
+});
+
+section("Lichtrenner");
+
+/** Zeichnet in der Seite alle gesendeten Spielaktionen mit (window.__actions). */
+const recordActions = page => page.eval(`
+    window.__actions = [];
+    if (!window.__fetchPatched) {
+        window.__fetchPatched = true;
+        const original = window.fetch;
+        window.fetch = (url, options) => {
+            if (String(url).includes("/api/game/action")) window.__actions.push(JSON.parse(options.body).action);
+            return original(url, options);
+        };
+    }`);
+const sentTurns = page => page.eval(`return window.__actions.filter(a => a.type === "turn").length;`);
+
+await test("Host startet Lichtrenner → Countdown, dann läuft die Runde", async () => {
+    await startGame(anna, "lichtrenner");
+    await anna.waitFor(`document.querySelector('.lr[data-phase="setup"] .lr-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.lr[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".lr-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".lr-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".lr-overlay").textContent.includes("Bots: 1")`, "Bens Anzeige: 1 Bot");
+    await recordActions(anna);
+    await anna.click(".lr-start");
+    for (const page of [anna, ben]) {
+        await page.waitFor(`document.querySelector('.lr[data-phase="countdown"]') && !document.querySelector(".lr-countdown").hidden`, "Countdown sichtbar");
+    }
+    assert.equal(await anna.eval(`return document.querySelectorAll(".lr-scores li").length;`), 3, "2 Spieler + 1 Bot");
+    await anna.waitFor(`document.querySelector('.lr[data-phase="running"]')`, "Runde läuft", 6000);
+});
+await test("Steuerung: Pfeiltasten und WASD lenken, Tippen im Chat nicht", async () => {
+    const scrollBefore = await anna.eval(`return document.scrollingElement.scrollTop + (document.querySelector(".game-card")?.scrollTop ?? 0);`);
+    await anna.eval(`document.activeElement?.blur();`);
+    await anna.press("ArrowUp");
+    await anna.press("ArrowLeft");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "turn").length >= 1`, "Pfeiltaste sendet turn");
+    const afterArrows = await sentTurns(anna);
+    await anna.press("s");
+    await anna.press("d");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "turn").length > ${afterArrows}`, "WASD sendet turn");
+    const scrollAfter = await anna.eval(`return document.scrollingElement.scrollTop + (document.querySelector(".game-card")?.scrollTop ?? 0);`);
+    assert.equal(scrollAfter, scrollBefore, "Pfeiltasten scrollen die Seite nicht");
+
+    const beforeChat = await sentTurns(anna);
+    await anna.eval(`document.getElementById("lobby-chat-input").focus();`);
+    for (const key of ["w", "a", "ArrowDown"]) await anna.press(key);
+    await sleep(200);
+    assert.equal(await sentTurns(anna), beforeChat, "keine Lenkbefehle aus dem Chatfeld");
+    assert.equal(await anna.eval(`return document.getElementById("lobby-chat-input").value;`), "wa", "Buchstaben landen im Chat");
+    await anna.eval(`const i = document.getElementById("lobby-chat-input"); i.value = ""; i.blur();`);
+    await anna.screenshot("20-lichtrenner.png");
+});
+await test("Lichtrenner im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".lr-log") < 60, "Ereignisliste dunkel");
+    await ben.screenshot("21-lichtrenner-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Lichtrenner → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".lr")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".lr")`, "Spiel weg bei Anna");
+    assert.equal(await anna.eval(`return document.getElementById("awa-game-kit-controls") !== null;`), true, "Styles bleiben (einmalig)");
 });
 
 section("Host-Wechsel und private Lobbys");

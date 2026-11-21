@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 6, "6 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 7, "7 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 6`, "6 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 7`, "7 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -921,6 +921,71 @@ await test("Host beendet Bomben-Labyrinth → zurück in der Lobby", async () =>
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".bl")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".bl")`, "Spiel weg bei Anna");
+});
+
+section("Artillerie-Duell");
+
+await test("Host startet Artillerie-Duell → beide in der Zielphase", async () => {
+    await startGame(anna, "artillerie");
+    await anna.waitFor(`document.querySelector('.ad[data-phase="setup"] .ad-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.ad[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".ad-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".ad-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".ad-overlay").textContent.includes("Bots: 1 (mittel)")`, "Bens Anzeige: 1 Bot, mittel");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".ad-bot-level option").length;`), 3, "drei Bot-Stärken");
+    await anna.eval(`const s = document.querySelector(".ad-bot-level"); s.value = "leicht"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".ad-overlay").textContent.includes("Bots: 1 (leicht)")`, "Bens Anzeige: leicht");
+    await recordActions(anna);
+    await anna.click(".ad-start");
+    for (const page of [anna, ben]) {
+        await page.waitFor(`document.querySelector('.ad[data-phase="aiming"]') && !document.querySelector(".ad-panel").hidden`, "Zielphase mit Bedienleiste");
+    }
+    assert.equal(await anna.eval(`return document.querySelectorAll(".ad-scores li").length;`), 3, "2 Spieler + 1 Bot");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".ad-weapon").length;`), 3, "drei Waffen");
+});
+await test("Zielen per Taste halten, Kraft mit E, Feuer frei mit Leertaste → Salve fliegt", async () => {
+    await anna.eval(`document.activeElement?.blur();`);
+    const before = Number(await anna.eval(`return document.querySelector(".ad-angle").value;`));
+    await anna.keyDown("ArrowUp");
+    await sleep(400);
+    await anna.keyUp("ArrowUp");
+    const after = Number(await anna.eval(`return document.querySelector(".ad-angle").value;`));
+    assert.ok(after > before + 2, `Winkel gestiegen: ${before} → ${after}`);
+    await anna.waitFor(`window.__actions.some(a => a.type === "aim" && a.angle === ${after})`, "aim gesendet");
+    const power = Number(await anna.eval(`return document.querySelector(".ad-power").value;`));
+    await anna.keyDown("e");
+    await anna.keyUp("e");
+    await anna.waitFor(`Number(document.querySelector(".ad-power").value) === ${power + 1}`, "Kraft +1");
+    // Regler ohne Innenabstand: bei 100 sitzt der Knopf am rechten Rand der Schiene
+    const range = await anna.eval(`
+        const input = document.querySelector(".ad-power");
+        const style = getComputedStyle(input);
+        return { padding: style.paddingLeft + " " + style.paddingRight, border: style.borderLeftWidth };`);
+    assert.deepEqual(range, { padding: "0px 0px", border: "0px" }, "Schieberegler ohne Innenabstand und Rahmen");
+    await anna.click('.ad-weapon[data-weapon="splitter"]');
+    await anna.waitFor(`document.querySelector('.ad-weapon[data-weapon="splitter"]').getAttribute("aria-pressed") === "true"`, "Splitter gewählt");
+    await anna.screenshot("24-artillerie.png");
+
+    await anna.press(" ");
+    await anna.waitFor(`window.__actions.some(a => a.type === "ready" && a.weapon === "splitter" && a.angle === ${after})`, "ready mit Zielwerten");
+    await anna.waitFor(`document.querySelector(".ad-fire").classList.contains("is-ready")`, "Anna bereit");
+    await ben.click(".ad-fire");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.ad[data-phase="flight"]')`, "Salve fliegt", 8000);
+    await sleep(1200);
+    await ben.screenshot("25-artillerie-salve.png");
+    await anna.waitFor(`["aiming", "roundOver"].includes(document.querySelector(".ad").dataset.phase)`, "nächste Salve", 25000);
+});
+await test("Artillerie-Duell im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".ad-log") < 60, "Ereignisliste dunkel");
+    await ben.screenshot("26-artillerie-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Artillerie-Duell → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".ad")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".ad")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

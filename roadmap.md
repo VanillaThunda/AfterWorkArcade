@@ -65,8 +65,58 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Genre | Kurzidee | Lernzeit | Spieler | Aufwand | Technik |
 |---|---|---|---|---|---|---|---|
-| 2 | **Artillerie-Duell** | Worms-/Scorched-Earth-Genre | Rundenbasiert: Winkel, Kraft und Wind, zerstörbares Gelände. Der Server berechnet die Flugbahn, der Client spielt sie als Animation ab. Wenige Waffen (Granate, Splitter, Bohrer). | 2 min | 2–6 + Bots | mittel–hoch | rundenbasiert, Gelände als Bitmap-Text wie die Revierkampf-Karte |
-| 3 | **Burgen-Duell** | Forts-Genre (vereinfacht) | Bauphase (60 s): Mauern und Kanonen auf der eigenen Seite bauen. Schussphase: abwechselnd feuern. Wer den gegnerischen Kern trifft, gewinnt. | 3 min | 2–8 (2 Teams) | hoch | baut auf dem Artillerie-Duell auf, später als **Modus davon** |
+| 3 | **Burgen-Duell** | Forts-Genre (vereinfacht) | Bauphase (60 s): Mauern und Kanonen auf der eigenen Seite bauen. Schussphase: abwechselnd feuern. Wer den gegnerischen Kern trifft, gewinnt. | 3 min | 2–8 (2 Teams) | hoch | baut auf dem Artillerie-Duell (0.10.0) auf, als **Modus davon**: `simulateShot`, `carve`, `resolveVolley`, `settleTanks` sind dafür schon als eigenständige Funktionen angelegt. Für Mauern über Hohlräumen bräuchte es statt des Höhenprofils ein Pixel- bzw. Block-Gelände. |
+
+### Koop-Prügelspiel im Seitenscroller (gewünscht am 2026-11-21)
+
+**Richtung:** Beat-'em-up im Seitenscroller, das die Gruppe **gemeinsam** spielt (Genre wie die
+klassischen Arcade-Koop-Prügler der frühen 90er). Eigene Figuren, eigene Welt, eigener Name –
+keine Figuren, Namen, Grafiken oder Level eines Vorbilds.
+
+**Arbeitstitel:** „Feierabend-Fäuste“ (Name noch offen).
+
+**Spielidee (grobe Richtung):**
+- 1–4 Spieler (evtl. bis 6) laufen gemeinsam von links nach rechts durch einen Abschnitt
+  (z. B. Hinterhof → Lagerhalle → Dach) und prügeln sich durch Gegnerwellen.
+- Die **Gegner-Schwierigkeit stellt der Host vorher ein** (z. B. leicht/mittel/schwer: Anzahl,
+  Lebenspunkte, Angriffstempo und Aggressivität der Gegner; evtl. zusätzlich mit der Spielerzahl skaliert).
+- **Am Ende wartet ein Bosskampf** auf die ganze Gruppe (mehrere Phasen, eigene Angriffsmuster).
+- **Wertung:** Wer insgesamt den **meisten Schaden ausgeteilt** hat, ist der Sieger der Gruppe
+  (Ranglisten-Bildschirm am Ende: Schaden, Treffer, K.-o.s, „Bosstreffer“). Das passt direkt zur
+  geplanten Spiel-Session (`resultOf`).
+- Gewonnen oder verloren wird gemeinsam: Fällt die ganze Gruppe, ist das Spiel verloren
+  (die Schadens-Rangliste gibt es trotzdem).
+
+**Mögliche Mechaniken:**
+- Laufen in 2D mit Tiefe (Bodenebene: x und „Tiefe“ y, wie im Genre üblich), Springen.
+- Schlag (Kombo bei mehrfachem Drücken), Sprungangriff, Spezialangriff mit Kosten (z. B. eigene
+  Lebenspunkte oder eine aufladbare Leiste).
+- Gegnertypen: einfacher Schläger, Werfer auf Distanz, schwerer Brocken mit Schutz; Boss mit
+  Ansturm, Flächenangriff und Gehilfen.
+- Wiederbeleben: Ein K.-o.-Spieler kann von Mitspielern aufgeholfen werden oder steigt nach
+  einer Wartezeit mit weniger Lebenspunkten wieder ein.
+- Kamera folgt der Gruppe; niemand kann den Bildschirmausschnitt verlassen. Der nächste Abschnitt
+  öffnet sich erst, wenn die Welle besiegt ist („Go →“).
+- Kleine Pickups (Essen heilt, Wurfgegenstände).
+
+**Technik und Aufwand (hoch):**
+- Echtzeit wie das Bomben-Labyrinth: `tick()` mit 50 ms, Server ist die Wahrheit, Client
+  interpoliert Positionen (wie die gleitenden Figuren im Bomben-Labyrinth). Freie Bewegung statt
+  Raster ist neu; Treffer werden über einfache Rechtecke (Hitboxen) mit Tiefen-Toleranz geprüft.
+  Im LAN sollte das reichen, weil Prügelspiele eher kurze Reaktionen auf Nahdistanz brauchen
+  als millimetergenaues Zielen.
+- Steuerung: `controls.js` hat bisher nur **einen** Aktionsknopf – hier braucht es mehrere
+  (Schlag, Sprung, Spezial). Erweiterung um `actionButtons: [...]` nötig.
+- Grafik ist der größte Aufwand: Figuren, Gegner und Boss als selbst gezeichnete Canvas-Figuren
+  (einfache, stilisierte Formen mit wenigen Animationsphasen), Hintergründe in Ebenen (Parallaxe).
+- Gegner-KI: Zustandsmaschine (annähern, umkreisen, angreifen, zurückweichen), damit nicht alle
+  gleichzeitig zuschlagen („Angriffs-Tickets“ wie im Genre üblich).
+
+**Offene Fragen:**
+- Spielerzahl (4 oder 6) und ob Bots als Mitspieler sinnvoll sind.
+- Länge: ein Abschnitt mit Boss (~5–8 min) oder mehrere Level?
+- Feste Figuren mit Unterschieden (schnell / stark / Reichweite) oder alle gleich mit eigener Farbe?
+- Friendly Fire an oder aus?
 
 #### Schnelle Gewinne mit kleinem Aufwand
 
@@ -92,11 +142,12 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 1. ~~**Mäxchen**~~ – umgesetzt in 0.7.0.
 2. ~~**Lichtrenner**~~ – umgesetzt in 0.8.0.
 3. ~~**Bomben-Labyrinth**~~ – umgesetzt in 0.9.0.
-4. **Artillerie-Duell,** danach **Burgen-Duell** als Modus davon.
-5. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
+4. ~~**Artillerie-Duell**~~ – umgesetzt in 0.10.0. Als Nächstes evtl. das **Burgen-Duell** als Modus davon.
+5. **Koop-Prügelspiel im Seitenscroller** („Feierabend-Fäuste“, siehe oben).
+6. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
 
 **Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
-`public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth.
+`public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth und Artillerie-Duell. Für das Koop-Prügelspiel fehlen noch mehrere Aktionsknöpfe.
 
 ### Spielauswahl bei vielen Spielen
 - Kategorien/Tags pro Spiel (`meta.tags`, z. B. „Würfel“, „Echtzeit“, „Karten“, „Strategie“) als Filter-Chips im Auswahl-Dialog.

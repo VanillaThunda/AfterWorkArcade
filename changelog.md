@@ -8,6 +8,25 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.10.0] – 2026-11-21
+
+### Hinzugefügt
+- **Neues Spiel: Artillerie-Duell** (rundenbasiert, 1–6 Spieler plus 0–5 Bots).
+  - Alle zielen gleichzeitig (20 s): Winkel, Kraft, Waffe, dazu ein Stück fahren (Treibstoff). Danach fliegen alle Geschosse zusammen.
+  - Der Server simuliert die ganze Salve (Schwerkraft, Wind, Kollisionen), der Browser spielt sie als Animation ab.
+  - Zerstörbares Gelände als Höhenprofil: Krater verändern es sofort, auch für spätere Einschläge derselben Salve. Panzer fallen nach und bekommen Fallschaden.
+  - Drei Waffen: 💣 Granate (unbegrenzt), ✴️ Splitter (zerplatzt in 5 Splitter), 🔩 Bohrer (durchschlägt bis zu 70 Einheiten Gelände). Je 2 Spezialschüsse pro Runde.
+  - Was die anderen einstellen, ist bis zum Abschuss verborgen.
+  - Wer zuletzt steht, gewinnt die Runde; nach 12 Salven entscheiden die Trefferpunkte. Siege zum Gewinnen 1–5.
+  - Bots mit einstellbarer Stärke (leicht/mittel/schwer): Sie berechnen ihren Schuss per Simulation, streuen je nach Stufe und Persönlichkeit und schießen sich auf ein Ziel ein.
+  - Steuerung per Regler und Knöpfen, Tastatur (←/→ fahren, ↑/↓ Rohr, Q/E Kraft, Leertaste Feuer frei) oder Touch.
+- Test `tests/artillerie.test.mjs` (`npm run test:artillerie`). Er läuft auch beim Merge nach main mit.
+
+### Behoben
+- Schieberegler hatten den Innenabstand und Rahmen normaler Eingabefelder und wirkten bei 100 % nicht ganz gefüllt.
+
+---
+
 ## [0.9.0] – 2026-11-21
 
 ### Hinzugefügt

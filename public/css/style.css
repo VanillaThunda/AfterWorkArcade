@@ -216,6 +216,15 @@ select {
     color: var(--color-text);
 }
 
+/* Schieberegler ohne Innenabstand/Rahmen/Hintergrund – sonst sitzt die Schiene
+   eingerückt in einem breiteren Kasten und wirkt bei 100 % nicht ganz gefüllt. */
+input[type="range"] {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    accent-color: var(--color-primary);
+}
+
 :root[data-theme="dark"] input:focus,
 :root[data-theme="dark"] select:focus { outline-color: #7b8594; }
 

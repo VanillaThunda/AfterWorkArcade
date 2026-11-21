@@ -1,13 +1,13 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.9.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.10.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
-Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner** und das
-Echtzeit-Bombenspiel **Bomben-Labyrinth**.
+Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
+Echtzeit-Bombenspiel **Bomben-Labyrinth** und das rundenbasierte **Artillerie-Duell**.
 
 ---
 
@@ -20,7 +20,7 @@ Echtzeit-Bombenspiel **Bomben-Labyrinth**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth)
+8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -188,9 +188,12 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ lichtrenner/
 │  │  ├─ game.js           Server-Teil (Bewegung pro Tick, Kollisionen, Runden, Bots, viewFor)
 │  │  └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
-│  └─ bombenlabyrinth/
-│     ├─ game.js           Server-Teil (Bewegung, Bomben, Explosionen, Power-ups, Schrumpfen, Bots, viewFor)
-│     └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
+│  ├─ bombenlabyrinth/
+│  │  ├─ game.js           Server-Teil (Bewegung, Bomben, Explosionen, Power-ups, Schrumpfen, Bots, viewFor)
+│  │  └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
+│  └─ artillerie/
+│     ├─ game.js           Server-Teil (Gelände, Flugbahn-Physik, Salven, Waffen, Bots, viewFor)
+│     └─ public/           Browser-Teil (Canvas, Flug-Animation, Bedienleiste, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -409,7 +412,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth
+## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell
 
 ### 8.1 Risiko-Würfel
 
@@ -740,6 +743,79 @@ Aktionen (`POST /api/game/action`):
 
 Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/bombenlabyrinth/game.js`.
 
+### 8.7 Artillerie-Duell
+
+Rundenbasiertes Geschützduell (Genre Worms/Scorched Earth, eigene Regeln und Grafik) für
+1–6 Spieler plus 0–5 Bots (höchstens 6 Teilnehmer).
+
+**Ablauf:**
+1. **Vorbereitung:** Der Host stellt Bots (0–5, Standard 2), die **Bot-Stärke** (leicht/mittel/schwer,
+   Standard mittel) und die Zahl der Siege zum Gewinnen (1–5, Standard 3) ein und startet.
+2. **Runde:** Neues hügeliges Gelände (800 × 400 Einheiten, Höhenprofil mit 400 Spalten);
+   die Panzer stehen gleichmäßig verteilt auf eingeebneten Plätzen. Jeder hat 100 Trefferpunkte,
+   2 Splitter und 2 Bohrer. Eine Runde hat höchstens 12 Salven.
+3. **Zielphase (20 s, alle gleichzeitig):**
+   - Winkel (0–180°, 90 = senkrecht) und Kraft (10–100) per Regler oder Tastatur, dazu die Waffe.
+   - Fahren: 10 Schritte Treibstoff pro Salve; zu steile Hänge blockieren.
+   - „Feuer frei“ meldet bereit (nochmal klicken nimmt es zurück). Die Salve startet, sobald alle
+     bereit sind oder die Zeit abläuft – dann mit den zuletzt eingestellten Werten.
+   - Der **Wind** wird je Salve neu ausgewürfelt und oben angezeigt.
+   - Was die anderen einstellen, ist bis zum Abschuss verborgen (`viewFor`).
+4. **Salve:** Der Server simuliert alle Geschosse gleichzeitig (Schwerkraft, Wind, 20-ms-Schritte).
+   - Einschläge sprengen sofort Krater; spätere Geschosse derselben Salve sehen das neue Gelände.
+   - Schaden nimmt zum Rand der Explosion linear ab und wird am Ende der Salve abgezogen –
+     wer sich gegenseitig trifft, scheidet gemeinsam aus.
+   - Danach setzen sich die Panzer auf das Gelände; wer tiefer als 20 Einheiten fällt, bekommt Fallschaden.
+   - Der Browser spielt die Salve als Animation ab (Schweif, Explosion, Krater, Schadenszahlen, Sturz).
+5. **Rundenende:** Steht höchstens noch ein Panzer, endet die Runde. Nach der 12. Salve gewinnt, wer die
+   meisten Trefferpunkte hat; bei Gleichstand oder wenn alle zerstört sind, ist es ein Unentschieden.
+6. **Ende:** Wer zuerst die eingestellte Zahl Siege hat, gewinnt. Platzierung nach Siegen, dann nach
+   ausgeteiltem Schaden (`state.result.placements`).
+
+**Waffen:**
+
+| Waffe | Wirkung | Munition |
+|---|---|---|
+| 💣 Granate | Krater Radius 30, bis 45 Schaden | unbegrenzt |
+| ✴️ Splitter | kleiner Einschlag (Radius 18, 20 Schaden), dann 5 Splitter im Fächer (je Radius 14, 15 Schaden) | 2 pro Runde |
+| 🔩 Bohrer | durchschlägt bis zu 70 Einheiten Gelände (gräbt einen Kanal), dann Explosion Radius 22, 35 Schaden | 2 pro Runde |
+
+**Bots:**
+- Wählen ein Ziel (bevorzugt angeschlagene und nahe Gegner) und suchen den Schuss per Simulation
+  über Winkel und Kraft unter dem aktuellen Wind. Steht Gelände im Weg, nehmen sie den Bohrer;
+  stehen Gegner dicht beieinander, den Splitter.
+- **Streuung** = Bot-Stärke × Persönlichkeit (±20 %) × Einschießen (erster Schuss auf ein Ziel ×1,4,
+  danach je ×0,8 bis ×0,6; nach Zielwechsel oder Fahren von vorn). Gemessene Trefferquote
+  (Schüsse mit Schaden): leicht ≈ 23 %, mittel ≈ 43 %, schwer ≈ 57 %.
+- Sie fahren gelegentlich, planen einer pro Tick (der Server blockiert nie lange) und melden sich nach
+  1–4 s bereit.
+
+**Physik als wiederverwendbare Funktionen** (für ein späteres Burgen-Duell): `generateTerrain`,
+`restY`, `carve`, `launch`, `stepProjectile`, `simulateShot`, `resolveVolley`, `settleTanks`.
+
+**Übertragung:**
+- Das Höhenprofil (`heights`, 400 Zahlen) geht mit jedem Update mit.
+- In der Flugphase enthält `state.flight` das Gelände vorher, alle Pfade (alle 40 ms ein Punkt),
+  Krater, Explosionen, Treffer und Stürze (insgesamt ca. 10–20 KB, einmal pro Salve).
+- `viewFor` verbirgt fremde Zielwerte in der Zielphase, ersetzt Zeitpunkte durch Restzeiten
+  (`aimingMs`, `flightMs`, `roundOverMs`) und lässt Bot-Interna weg.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Partie zu.
+Wer geht, scheidet sofort aus. Bleibt nur ein Teilnehmer oder kein Mensch übrig, endet die Partie.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "bots": 2, "botLevel": "mittel", "wins": 3 }` | Host, vor der Partie |
+| Partie starten | `{ "type": "start" }` | Host, vor der Partie |
+| Zielen | `{ "type": "aim", "angle": 50, "power": 70, "weapon": "granate" }` | eigener Panzer, Zielphase, nicht bereit |
+| Fahren | `{ "type": "move", "dir": -1 }` (`-1` links, `1` rechts) | eigener Panzer, Zielphase, nicht bereit |
+| Feuer frei | `{ "type": "ready", "angle": 50, "power": 70, "weapon": "splitter" }` (`"ready": false` nimmt zurück) | eigener Panzer, Zielphase |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Partieende |
+
+Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/artillerie/game.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -866,10 +942,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:maexchen`  | `tests/maexchen.test.mjs`  | < 1 s  | Mäxchen-Logik direkt: Werte/Rangfolge, Ansagen, Glauben/Anzweifeln, Mäxchen-Regeln, Leben/Ausscheiden, viewFor, Timer, Bots, Verlassen; Bot-Namen (`server/bot-names.js`) |
 | `npm run test:lichtrenner` | `tests/lichtrenner.test.mjs` | ~1 s | Lichtrenner-Logik direkt: Startpunkte, Bewegung, Crash (Wand, Spuren, gleiches Feld), Umkehr, Doppelkurve, Runden/Siege, Zeitgrenze, Bots, Verlassen, viewFor |
 | `npm run test:bombenlabyrinth` | `tests/bombenlabyrinth.test.mjs` | ~3 s | Bomben-Labyrinth-Logik direkt: Arena, Taste halten/Tempo, Blockaden, Bomben-Limit, Explosion/Reichweite/Kisten, Kettenreaktion, Ausscheiden, Power-ups, Schrumpfen, Zeitgrenze, Runden/Partie, Bots (Persönlichkeit, Flucht, Sackgasse, Duelle), Verlassen, viewFor |
+| `npm run test:artillerie` | `tests/artillerie.test.mjs` | ~3 s | Artillerie-Logik direkt: Gelände, Krater, Flugbahn (Wind, Kraft, Weltrand), Rumpftreffer, Schaden und Fallschaden, Splitter, Bohrer, Munition, Fahren, Zielphase (bereit/Zeitablauf), gleichzeitige Salve, Runden/Partie, Bots (Bedenkzeit, Treffer, Bohrer, Stärke, Einschießen), Verlassen, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~120 s | alle neun nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~130 s | alle zehn nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

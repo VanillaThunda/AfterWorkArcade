@@ -48,6 +48,18 @@ export function changelogSection(changelog, version) {
 }
 
 /**
+ * Push nach dem Release: Gibt es das Remote "origin", werden main, dev und der neue
+ * (annotierte) Tag hochgeladen. Ohne Remote passiert nichts.
+ * @param {string} remotes  Ausgabe von "git remote" (ein Name pro Zeile)
+ * @returns {string[]|null} Argumente für git oder null
+ */
+export function pushPlan(remotes) {
+    const names = remotes.split(/\r?\n/).map(name => name.trim()).filter(Boolean);
+    if (!names.includes("origin")) return null;
+    return ["push", "origin", "main", "dev", "--follow-tags"];
+}
+
+/**
  * Prüft die Release-Daten und liefert eine Liste von Fehlern (leer = alles ok).
  * @param {{version: string, tags: string[], changelog: string, documentation: string}} data
  */

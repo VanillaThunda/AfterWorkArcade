@@ -37,7 +37,7 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 **Offene Fragen:**
 - Welches Punkteschema? Feste Punkte oder abhängig von der Spielerzahl?
-- Was passiert mit Spielen ohne klares Ergebnis, z. B. Risiko-Würfel als reines Hilfsmittel?
+- Was passiert mit Spielen ohne klares Ergebnis, z. B. der Eroberungs-Würfel als reines Hilfsmittel?
 - Spieler, die mitten in der Session beitreten oder gehen: Punkte behalten, oder steigen sie mit 0 ein?
 - Darf der Host Spiele überspringen oder die Session abbrechen?
 
@@ -52,7 +52,7 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 **Grundsatz:** Wir bauen eigene Spiele im jeweiligen Genre, mit eigenem Namen, eigener Grafik und eigenen Regeln. Die Vorbilder werden nicht nachgebaut.
 
 **Was die Plattform technisch kann:**
-- **Rundenbasierte Spiele** passen perfekt: Aktion per POST, Zustand per SSE (wie Schocken und Risiko).
+- **Rundenbasierte Spiele** passen perfekt: Aktion per POST, Zustand per SSE (wie Schocken und der Eroberungs-Würfel).
 - **Echtzeit:**
   - `tick()` läuft mit mindestens 50 ms, also bis zu 20 Hz.
   - Bei jeder Änderung geht der volle Zustand an alle.

@@ -13,9 +13,18 @@
  *   …
  *   controls.destroy();                   // in destroy() des Spiels
  *
+ * Für Spiele mit „Taste halten“ (z. B. Bomben-Labyrinth) gibt es zusätzlich:
+ *
+ *   onRelease: dir => …,                  // Taste/Knopf losgelassen (auch bei Fokusverlust)
+ *   actionButton: {                       // Aktionstaste + Touch-Knopf neben dem Steuerkreuz
+ *       label: "💣", ariaLabel: "Bombe legen",
+ *       keys: [" ", "Enter"],             // Standard: Leertaste und Enter
+ *       onPress: () => ctx.sendAction({ type: "bomb" })
+ *   }
+ *
  * Tastatur: Pfeiltasten und WASD. Ignoriert werden Eingaben in Textfeldern
  * (z. B. Chat), bei offenem Dialog, mit Strg/Alt/Meta und gedrückt gehaltene
- * Tasten. Behandelte Tasten verhindern das Scrollen der Seite.
+ * Tasten (Wiederholung). Behandelte Tasten verhindern das Scrollen der Seite.
  */
 
 const KEY_DIRECTIONS = {
@@ -26,19 +35,25 @@ const KEY_DIRECTIONS = {
 
 const STYLE_ID = "awa-game-kit-controls";
 const STYLES = `
-.gk-dpad {
+.gk-pad {
     display: none;
-    grid-template: repeat(3, 56px) / repeat(3, 56px);
-    gap: 6px;
+    align-items: center;
     justify-content: center;
+    gap: 18px;
     margin: 10px auto 0;
     touch-action: none;
     user-select: none;
 }
 @media (pointer: coarse) {
-    .gk-dpad { display: grid; }
+    .gk-pad { display: flex; }
 }
-.gk-dpad button {
+.gk-dpad {
+    display: grid;
+    grid-template: repeat(3, 56px) / repeat(3, 56px);
+    gap: 6px;
+    touch-action: none;
+}
+.gk-pad button {
     padding: 0;
     font-size: 24px;
     border-radius: 12px;
@@ -48,6 +63,12 @@ const STYLES = `
 .gk-dpad [data-dir="left"] { grid-area: 2 / 1; }
 .gk-dpad [data-dir="right"] { grid-area: 2 / 3; }
 .gk-dpad [data-dir="down"] { grid-area: 3 / 2; }
+.gk-pad .gk-action {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    font-size: 32px;
+}
 `;
 
 /** Stylesheet des Bausteins einmalig einfügen. */
@@ -68,34 +89,65 @@ function isTyping(target) {
 /**
  * @param {object} options
  * @param {(dir: "up"|"down"|"left"|"right") => void} options.onDirection
+ * @param {(dir: "up"|"down"|"left"|"right") => void} [options.onRelease]  Richtung losgelassen
+ * @param {{label: string, ariaLabel?: string, keys?: string[], onPress: () => void}} [options.actionButton]
  * @param {() => boolean} [options.isActive]   nur reagieren, wenn true
  * @param {HTMLElement} [options.swipeTarget]  Element für Wischgesten
  * @returns {{ element: HTMLElement, destroy: () => void }}
  */
-export function createDirectionalControls({ onDirection, isActive = () => true, swipeTarget = null }) {
+export function createDirectionalControls({ onDirection, onRelease = null, actionButton = null, isActive = () => true, swipeTarget = null }) {
     ensureStyles();
+
+    const actionKeys = actionButton ? (actionButton.keys ?? [" ", "Enter"]) : [];
+    const held = new Set();   // aktuell gedrückte Richtungen (Tastatur + Steuerkreuz)
 
     function emit(dir) {
         if (isActive()) onDirection(dir);
     }
 
+    function release(dir) {
+        if (!held.delete(dir)) return;
+        if (onRelease) onRelease(dir);
+    }
+
+    function releaseAll() {
+        for (const dir of [...held]) release(dir);
+    }
+
     // --- Tastatur -------------------------------------------------------------
     function onKeyDown(event) {
+        if (event.ctrlKey || event.altKey || event.metaKey) return;
         const dir = KEY_DIRECTIONS[event.key];
-        if (!dir || event.ctrlKey || event.altKey || event.metaKey) return;
+        const isAction = actionKeys.includes(event.key);
+        if (!dir && !isAction) return;
         if (isTyping(event.target) || document.querySelector("dialog[open]")) return;
         if (!isActive()) return;
-        event.preventDefault(); // Pfeiltasten scrollen sonst die Seite
+        // Pfeiltasten und Leertaste scrollen sonst die Seite; die Aktionstaste soll
+        // außerdem keinen gerade fokussierten Knopf (z. B. „Lobby verlassen“) auslösen.
+        event.preventDefault();
         if (event.repeat) return;
+        if (isAction) {
+            actionButton.onPress();
+            return;
+        }
+        held.add(dir);
         onDirection(dir);
     }
+    function onKeyUp(event) {
+        const dir = KEY_DIRECTIONS[event.key];
+        if (dir) release(dir);
+    }
     document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", releaseAll);
 
     // --- Steuerkreuz ------------------------------------------------------------
     const element = document.createElement("div");
-    element.className = "gk-dpad";
-    element.setAttribute("role", "group");
-    element.setAttribute("aria-label", "Steuerung");
+    element.className = "gk-pad";
+    const dpad = document.createElement("div");
+    dpad.className = "gk-dpad";
+    dpad.setAttribute("role", "group");
+    dpad.setAttribute("aria-label", "Steuerung");
     for (const [dir, symbol, label] of [["up", "▲", "hoch"], ["left", "◀", "links"], ["right", "▶", "rechts"], ["down", "▼", "runter"]]) {
         const button = document.createElement("button");
         button.type = "button";
@@ -104,7 +156,26 @@ export function createDirectionalControls({ onDirection, isActive = () => true, 
         button.setAttribute("aria-label", label);
         button.addEventListener("pointerdown", event => {
             event.preventDefault();
-            emit(dir);
+            if (!isActive()) return;
+            held.add(dir);
+            onDirection(dir);
+        });
+        for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+            button.addEventListener(type, () => release(dir));
+        }
+        dpad.append(button);
+    }
+    element.append(dpad);
+
+    if (actionButton) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "gk-action";
+        button.textContent = actionButton.label;
+        button.setAttribute("aria-label", actionButton.ariaLabel ?? actionButton.label);
+        button.addEventListener("pointerdown", event => {
+            event.preventDefault();
+            if (isActive()) actionButton.onPress();
         });
         element.append(button);
     }
@@ -133,6 +204,8 @@ export function createDirectionalControls({ onDirection, isActive = () => true, 
         element,
         destroy() {
             document.removeEventListener("keydown", onKeyDown);
+            document.removeEventListener("keyup", onKeyUp);
+            window.removeEventListener("blur", releaseAll);
             if (swipeTarget) {
                 swipeTarget.removeEventListener("pointerdown", onPointerDown);
                 swipeTarget.removeEventListener("pointerup", onPointerUp);

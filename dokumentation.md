@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.10.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.11.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -149,6 +149,8 @@ gespeichert und bei jeder Anfrage im Header `Authorization: Bearer <token>` mitg
 main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 ├─ server.js               Einstiegspunkt: HTTP-Server und Routing
 ├─ package.json            Name, Version, Startskript (keine Abhängigkeiten)
+├─ README.md               Kurzvorstellung für GitHub
+├─ LICENSE                 MIT-Lizenz
 ├─ changelog.md            Änderungen je Version
 ├─ roadmap.md              geplante Funktionen und Ideen für spätere Versionen
 ├─ dokumentation.md        diese Datei
@@ -868,8 +870,10 @@ Alle Einstellungen stehen in `server/config.js`:
 
 ## 11. Versionierung mit Git
 
-Seit Version 0.5.2 wird mit **Git** versioniert, ohne Git-Server. Bis 0.5.1 gab es dafür Versionsordner.
+Seit Version 0.5.2 wird mit **Git** versioniert. Bis 0.5.1 gab es dafür Versionsordner.
 Diese Ordner wurden als Historie mit Tags `v0.0.1` … `v0.5.1` übernommen.
+Seit 0.11.0 ist das Repository **öffentlich auf GitHub**:
+<https://github.com/VanillaThunda/AfterWorkArcade> (MIT-Lizenz, siehe `LICENSE`).
 
 **Aufbau:** ein Repository mit zwei Arbeitsordnern (*Git-Worktrees*), benannt wie die Branches:
 
@@ -900,6 +904,9 @@ C:\CodingProjekte\AfterWorkArcade\
    - Führt in `main\` `git merge --no-ff dev` aus.
    - Setzt den Annotated Tag.
    - Holt `dev` per Fast-Forward auf den Stand von `main`.
+   - Lädt `main`, `dev` und die Tags nach GitHub hoch (`git push origin main dev --follow-tags`),
+     sofern das Remote `origin` eingerichtet ist. Scheitert das (offline, nicht angemeldet), ist das
+     Release trotzdem fertig; das Skript nennt den Befehl zum Nachholen.
 5. Den Server auf der Synology neu starten.
 
 **Git-Hooks** (versioniert in `.githooks/`, aktiviert per `git config core.hooksPath .githooks`,
@@ -908,7 +915,7 @@ Logik in `scripts/git/`; bewusst ohne Husky, da das Projekt keine npm-Pakete nut
 | Hook | Wirkung |
 |---|---|
 | `pre-commit` | Verbietet direkte Commits auf `main` (außer beim Abschluss eines Merges). Prüft die Syntax gestagter `.js`/`.mjs`-Dateien (`node --check`). |
-| `pre-merge-commit` | Nur auf `main`. Führt die Release-Prüfung und die schnellen Tests aus (API, Revierkampf, Schocken). |
+| `pre-merge-commit` | Nur auf `main`. Führt die Release-Prüfung und die schnellen Tests aus (API und die Logik-Tests aller Spiele). |
 
 **Release-Prüfung** (`node scripts/git/release-check.mjs`):
 - Die Version in `package.json` ist größer als der letzte Tag.
@@ -924,7 +931,13 @@ Logik in `scripts/git/`; bewusst ohne Husky, da das Projekt keine npm-Pakete nut
 **Hinweise:**
 - Der Ordner `.git` wird per Syncthing mitsynchronisiert und dient so als Backup.
 - Auf der Synology keine Git-Befehle ausführen, weil die Worktree-Verweise Windows-Pfade enthalten.
-- Ein Git-Server lässt sich später nachrüsten: `git remote add …`, danach `git push --all --follow-tags`.
+- **GitHub:** Remote `origin` ist eingerichtet. Die Anmeldung übernimmt der Git Credential Manager
+  (Teil von Git für Windows) beim ersten Push im Browser.
+- Commits laufen unter der im Repository hinterlegten Identität (GitHub-Name und die anonyme
+  noreply-Adresse von GitHub), damit keine private E-Mail-Adresse öffentlich wird.
+- Das Repository ist öffentlich: keine Passwörter, Zugangsschlüssel oder persönlichen Daten committen.
+  Spiele bekommen eigene Namen, Figuren und Grafiken (deshalb heißt der frühere „Risiko-Würfel“ seit
+  0.11.0 „Eroberungs-Würfel“).
 
 ---
 

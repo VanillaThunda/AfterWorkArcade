@@ -1,12 +1,13 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.8.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.9.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
-Bluff-Würfelspiel **Mäxchen** und das Echtzeit-Lichtspurspiel **Lichtrenner**.
+Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner** und das
+Echtzeit-Bombenspiel **Bomben-Labyrinth**.
 
 ---
 
@@ -19,7 +20,7 @@ Bluff-Würfelspiel **Mäxchen** und das Echtzeit-Lichtspurspiel **Lichtrenner**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner)
+8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -82,6 +83,9 @@ kopieren und dort per SSH `node server.js` ausführen.
     Kachel startet direkt; Esc oder „Abbrechen“ schließt den Dialog.
   - Spiele, die nicht zur aktuellen Spielerzahl passen, sind ausgegraut und nennen den Grund.
   - Die Spiele sind alphabetisch sortiert. Ab 7 Spielen erscheint ein Suchfeld (Titel und Beschreibung).
+  - Ist das Fenster niedrig, scrollt die Kachelliste; Kopf und Fußzeile bleiben stehen.
+    Unter 600 px Breite füllt der Dialog den Bildschirm, und die Kacheln werden kompakt
+    (Bild links, Text rechts, Button darunter).
   - Die Auswahl wird intern als geordnete Liste geführt (`maxSelection`, derzeit 1). Das ist die
     Vorbereitung für Spiel-Sessions mit mehreren Spielen, siehe `roadmap.md`.
 - **Spielmodus:** Solange ein Spiel läuft, rückt es in den Fokus. Die Lobby-Elemente werden
@@ -181,8 +185,11 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ maexchen/
 │  │  ├─ game.js           Server-Teil (Ansagen, Aufdecken, Leben, Bots, tick, viewFor je Spieler)
 │  │  └─ public/           Browser-Teil (Becher, CSS-Würfel, client.js, style.css)
-│  └─ lichtrenner/
-│     ├─ game.js           Server-Teil (Bewegung pro Tick, Kollisionen, Runden, Bots, viewFor)
+│  ├─ lichtrenner/
+│  │  ├─ game.js           Server-Teil (Bewegung pro Tick, Kollisionen, Runden, Bots, viewFor)
+│  │  └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
+│  └─ bombenlabyrinth/
+│     ├─ game.js           Server-Teil (Bewegung, Bomben, Explosionen, Power-ups, Schrumpfen, Bots, viewFor)
 │     └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
@@ -390,9 +397,19 @@ Wichtig:
   Tasten werden ignoriert, solange ein Eingabefeld (z. B. der Chat) oder ein Dialog den Fokus hat.
   Behandelte Tasten scrollen die Seite nicht.
 
+  Für Spiele mit „Taste halten“ gibt es zwei weitere Optionen (Beispiel: Bomben-Labyrinth):
+  ```js
+  onRelease: dir => …,                  // Taste/Knopf losgelassen, auch bei Fokusverlust des Fensters
+  actionButton: {                       // Aktionstaste und runder Touch-Knopf neben dem Steuerkreuz
+      label: "💣", ariaLabel: "Bombe legen",
+      keys: [" ", "Enter"],             // Standard: Leertaste
+      onPress: () => ctx.sendAction({ type: "bomb" })
+  }
+  ```
+
 ---
 
-## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner
+## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth
 
 ### 8.1 Risiko-Würfel
 
@@ -654,6 +671,75 @@ Aktionen (`POST /api/game/action`):
 
 Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/lichtrenner/game.js`.
 
+### 8.6 Bomben-Labyrinth
+
+Echtzeitspiel im Bomberman-Genre (eigene Regeln und Grafik) für 1–8 Spieler plus 0–7 Bots
+(höchstens 8 Teilnehmer).
+
+**Ablauf:**
+1. **Vorbereitung:** Der Host stellt Bots (0–7, Standard 3) und die Zahl der Siege zum Gewinnen
+   (1–5, Standard 3) ein und startet. Es braucht mindestens 2 Teilnehmer.
+2. **Arena:** 15 × 13 Felder mit festen Wänden (Rand und jedes zweite Feld als Säule) und
+   zufällig verteilten Kisten (ca. 70 % der freien Felder). Startplätze sind zuerst die vier Ecken,
+   dann die Randmitten; um jeden Startplatz bleibt ein Bereich von 2 Feldern frei.
+3. **Countdown (3 s):** Namen über den Figuren, „Du“ über der eigenen. Eine schon gedrückte
+   Richtung wird gemerkt.
+4. **Runde:** Tick alle 50 ms.
+   - **Laufen:** Solange eine Richtung gehalten wird, läuft die Figur Feld für Feld: der erste
+     Schritt sofort, danach alle 4/3/2 Ticks (200/150/100 ms) je nach Tempo-Stufe.
+     Wände, Kisten und Bomben blockieren; die eigene, gerade gelegte Bombe darf man verlassen.
+   - **Bomben:** Leertaste legt eine Bombe aufs eigene Feld (Start: 1 gleichzeitig, Reichweite 2).
+     Nach 2,5 s explodiert sie in alle vier Richtungen. Wände stoppen die Flamme, eine Kiste wird
+     gesprengt und stoppt sie ebenfalls, ein liegendes Power-up verbrennt. Getroffene Bomben
+     explodieren sofort mit (Kettenreaktion). Die Flammen brennen 0,5 s.
+   - **Power-ups:** Unter ca. 30 % der Kisten liegt eines: 🔥 Reichweite (max. 6),
+     💣 eine Bombe mehr (max. 5), 👟 Tempo (3 Stufen). Einsammeln durch Darüberlaufen.
+   - **Ausscheiden:** Wer auf einem brennenden Feld steht oder hineinläuft, ist für die Runde raus (✖).
+   - **Schrumpfen:** Nach 90 s wird alle 0,4 s ein Feld von außen nach innen (spiralförmig) zur Wand;
+     wer dort steht, scheidet aus. 15 s vorher erscheint ein Hinweis.
+5. **Rundenende:** Steht höchstens noch einer, endet die Runde; der Überlebende bekommt 1 Sieg.
+   Scheiden alle gleichzeitig aus, ist es ein Unentschieden, ebenso nach 150 s.
+   Danach 3 s Pause, dann der nächste Countdown. Power-ups gelten nur für eine Runde.
+6. **Ende:** Wer zuerst die eingestellte Zahl Siege hat, gewinnt.
+   - Die Platzierungen (nach Siegen, bei Gleichstand nach Überlebenszeit) stehen in `state.result.placements`.
+
+**Bots** haben eine beim Partiestart ausgewürfelte Persönlichkeit (`traits`: Angriffslust, Gier
+nach Power-ups, Zufälligkeit, Neigung zum Bombenlegen, Reaktionszeit). Vor jedem Schritt:
+1. **Gefahr:** Aus allen Bomben (inkl. Kettenreaktionen) und Flammen wird berechnet, wo und wann
+   es brennt. Steht der Bot in Gefahr, flieht er per Breitensuche zu einem zufälligen der
+   nächstgelegenen sicheren Felder, bevorzugt ohne andere Spieler darauf.
+   Fremde Bomben bemerkt er erst nach seiner Reaktionszeit (0,15–0,9 s), so macht er gelegentlich Fehler.
+2. **Bombe legen**, wenn sie Kisten oder Gegner trifft und danach ein Fluchtweg existiert.
+   Säße ein Gegner danach in einer Sackgasse fest, legt der Bot sie immer.
+3. **Ziel** (Power-up, lohnende Sprengstelle, im Endspiel die Nähe eines Gegners) wählen und
+   1–3 s beibehalten; Ziele anderer Bots werden gemieden. Ab und zu zögert ein Bot kurz.
+
+**Darstellung:** Canvas mit eigenen Farben (in beiden Designs gleich). Die Figuren gleiten
+zwischen den Feldern. Stehen mehrere Figuren auf demselben Feld, erscheinen sie als ein Kreis
+mit gleich großen Stücken in ihren Farben.
+
+**Übertragung:**
+- Die Arena ist ein Text mit einem Zeichen pro Feld (`#` Wand, `x` Kiste, `.` frei,
+  `r`/`b`/`s` Power-up). Er geht bei jedem Tick mit, dazu Bomben und Flammen.
+- Versteckte Power-ups liegen in `state.hidden` und werden von `viewFor` nicht verschickt.
+- `viewFor` ersetzt absolute Zeitpunkte durch Restzeiten (`countdownMs`, `roundOverMs`,
+  `suddenDeathInMs`), ergänzt die Schrittdauer `stepMs` je Spieler und lässt Bot-Interna weg.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Partie zu.
+Wer geht, scheidet sofort aus. Bleibt nur ein Teilnehmer oder kein Mensch übrig, endet die Partie.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "bots": 3, "wins": 3 }` | Host, vor der Partie |
+| Partie starten | `{ "type": "start" }` | Host, vor der Partie |
+| Laufen / stehen bleiben | `{ "type": "move", "dir": "left" }` bzw. `{ "type": "move", "dir": null }` | eigene Figur, im Countdown oder in der Runde |
+| Bombe legen | `{ "type": "bomb" }` | eigene Figur, in der Runde |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Partieende |
+
+Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/bombenlabyrinth/game.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -779,10 +865,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:maexchen`  | `tests/maexchen.test.mjs`  | < 1 s  | Mäxchen-Logik direkt: Werte/Rangfolge, Ansagen, Glauben/Anzweifeln, Mäxchen-Regeln, Leben/Ausscheiden, viewFor, Timer, Bots, Verlassen; Bot-Namen (`server/bot-names.js`) |
 | `npm run test:lichtrenner` | `tests/lichtrenner.test.mjs` | ~1 s | Lichtrenner-Logik direkt: Startpunkte, Bewegung, Crash (Wand, Spuren, gleiches Feld), Umkehr, Doppelkurve, Runden/Siege, Zeitgrenze, Bots, Verlassen, viewFor |
+| `npm run test:bombenlabyrinth` | `tests/bombenlabyrinth.test.mjs` | ~3 s | Bomben-Labyrinth-Logik direkt: Arena, Taste halten/Tempo, Blockaden, Bomben-Limit, Explosion/Reichweite/Kisten, Kettenreaktion, Ausscheiden, Power-ups, Schrumpfen, Zeitgrenze, Runden/Partie, Bots (Persönlichkeit, Flucht, Sackgasse, Duelle), Verlassen, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~110 s | alle acht nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~120 s | alle neun nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

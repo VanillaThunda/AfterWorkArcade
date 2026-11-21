@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Risiko-Würfel – Server-Teil.
+ * Eroberungs-Würfel – Server-Teil.
  *
  * Ablauf einer Runde:
  *  1. Angreifer würfelt mit 1–3 Würfeln, Verteidiger mit 1–2 Würfeln
@@ -16,7 +16,7 @@
  * Jedes Lobby-Mitglied darf für jede Seite würfeln.
  */
 
-/** Maximale Würfelanzahl je Seite nach den Risiko-Regeln. */
+/** Maximale Würfelanzahl je Seite nach den klassischen Eroberungsregeln. */
 const MAX_DICE = Object.freeze({ attacker: 3, defender: 2 });
 
 const SIDE_LABELS = Object.freeze({ attacker: "Angreifer", defender: "Verteidiger" });
@@ -108,9 +108,9 @@ function handleRoll(state, action, player) {
 
 module.exports = {
     meta: {
-        id: "risiko-wuerfel", // muss dem Ordnernamen entsprechen
-        name: "Risiko-Würfel",
-        description: "Würfelhelfer für Brettspiel-Abende: Angreifer und Verteidiger wählen ihre Würfelzahl und würfeln. Die Auswertung nach Risiko-Regeln erfolgt automatisch – alle sehen das Ergebnis sofort.",
+        id: "eroberungs-wuerfel", // muss dem Ordnernamen entsprechen
+        name: "Eroberungs-Würfel",
+        description: "Würfelhelfer für Brettspiel-Abende: Angreifer und Verteidiger wählen ihre Würfelzahl und würfeln. Die Auswertung nach den klassischen Eroberungsregeln (höchste Würfel paarweise vergleichen, bei Gleichstand gewinnt der Verteidiger) erfolgt automatisch – alle sehen das Ergebnis sofort.",
         minPlayers: 1,
         maxPlayers: 8
     },

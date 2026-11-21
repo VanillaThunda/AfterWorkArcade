@@ -30,7 +30,7 @@ const GAMES_DIR = path.join(__dirname, "games");
 
 /**
  * Liefert die Browser-Dateien eines Spiels aus.
- * Beispiel: /games/risiko-wuerfel/client.js → games/risiko-wuerfel/public/client.js
+ * Beispiel: /games/eroberungs-wuerfel/client.js → games/eroberungs-wuerfel/public/client.js
  * Der Server-Teil (game.js) ist dadurch von außen nicht erreichbar.
  */
 function serveGameFile(req, res, pathname) {

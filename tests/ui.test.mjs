@@ -3,7 +3,7 @@
  *
  * Simuliert zwei Spieler in getrennten Browser-Kontexten (eigener
  * localStorage) und klickt sich durch Login, Chat, Lobbys und den
- * Risiko-Würfel. Gesteuert wird der Browser über das Chrome DevTools
+ * Eroberungs-Würfel. Gesteuert wird der Browser über das Chrome DevTools
  * Protocol (CDP) – ohne npm-Pakete.
  *
  * Voraussetzung: Microsoft Edge, Google Chrome oder Chromium ist installiert.
@@ -332,7 +332,7 @@ await test("Lobby-Chat erscheint nicht im globalen Chat", async () => {
         .some(e => e.textContent === "Moin aus der Lobby");`), false);
 });
 
-section("Risiko-Würfel");
+section("Eroberungs-Würfel");
 
 /** Startet ein Spiel über den Auswahl-Dialog („+ Spiel auswählen“ → Kachel → „Spiel starten“). */
 async function startGame(page, gameId) {
@@ -413,15 +413,15 @@ await test("Spielauswahl bei kleinem Fenster und auf dem Handy: nichts abgeschni
     await anna.viewport(1400, 1000);
 });
 await test("Host startet Spiel → lädt bei beiden", async () => {
-    await startGame(anna, "risiko-wuerfel");
+    await startGame(anna, "eroberungs-wuerfel");
     await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");
     await ben.waitFor(`document.querySelector(".rw")`, "Spiel bei Ben");
-    assert.equal(await anna.text("#game-title"), "Risiko-Würfel");
+    assert.equal(await anna.text("#game-title"), "Eroberungs-Würfel");
     assert.equal(await anna.visible("#end-game-button"), true);
     assert.equal(await ben.visible("#end-game-button"), false);
     assert.equal(await ben.eval(`return document.querySelectorAll(".rw-attacker .rw-buttons button").length;`), 3);
     assert.equal(await ben.eval(`return document.querySelectorAll(".rw-defender .rw-buttons button").length;`), 2);
-    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/risiko-wuerfel/style.css"]').length;`), 1);
+    assert.equal(await anna.eval(`return document.querySelectorAll('link[href*="/games/eroberungs-wuerfel/style.css"]').length;`), 1);
 });
 /** Position und Größe eines Elements (für Layout-Prüfungen). */
 const rectOf = (page, selector) => page.eval(`
@@ -492,7 +492,7 @@ await test("Würfeln und Auswertung bei beiden sichtbar", async () => {
     await anna.waitFor(`document.querySelectorAll(".rw-comparison").length === 2`, "Auswertung bei Anna");
     await ben.waitFor(`document.querySelector(".rw-summary")`, "Zusammenfassung bei Ben");
     assert.match(await anna.text(".rw-rolled-by"), /Anna/);
-    await anna.screenshot("04-risiko.png");
+    await anna.screenshot("04-eroberungs-wuerfel.png");
 });
 await test("Reload mitten im Spiel stellt den Zustand wieder her", async () => {
     await ben.goto(APP);

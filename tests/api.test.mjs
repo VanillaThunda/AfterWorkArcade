@@ -39,13 +39,13 @@ await test("Path-Traversal ..%2f → 404", async () => {
     assert.equal((await call("GET", "/css/..%2f..%2fserver.js")).status, 404);
 });
 await test("game.js (Server-Teil) nicht abrufbar", async () => {
-    assert.equal((await call("GET", "/games/risiko-wuerfel/game.js")).status, 404);
+    assert.equal((await call("GET", "/games/eroberungs-wuerfel/game.js")).status, 404);
 });
 await test("Spiel-Traversal → 404", async () => {
-    assert.equal((await call("GET", "/games/risiko-wuerfel/..%2fgame.js")).status, 404);
+    assert.equal((await call("GET", "/games/eroberungs-wuerfel/..%2fgame.js")).status, 404);
 });
 await test("client.js abrufbar", async () => {
-    assert.equal((await call("GET", "/games/risiko-wuerfel/client.js")).status, 200);
+    assert.equal((await call("GET", "/games/eroberungs-wuerfel/client.js")).status, 200);
 });
 await test("Vorlage (_vorlage) wird nicht geladen", async () => {
     assert.equal((await call("GET", "/games/_vorlage/client.js")).status, 404);
@@ -67,7 +67,7 @@ await test("Server-Info", async () => {
 });
 await test("Spieleliste", async () => {
     const r = await call("GET", "/api/games");
-    assert.ok(r.data.games.some(game => game.id === "risiko-wuerfel"));
+    assert.ok(r.data.games.some(game => game.id === "eroberungs-wuerfel"));
     const names = r.data.games.map(game => game.name);
     assert.deepEqual(names, [...names].sort((a, b) => a.localeCompare(b, "de")), "alphabetisch sortiert");
 });
@@ -218,10 +218,10 @@ await test("Falscher Code → 404", async () => {
 });
 
 // ===========================================================================
-section("Spiel: Risiko-Würfel");
+section("Spiel: Eroberungs-Würfel");
 // ===========================================================================
 await test("Nicht-Host darf kein Spiel starten → 403", async () => {
-    assert.equal((await call("POST", "/api/game/select", { gameId: "risiko-wuerfel" }, ben.token)).status, 403);
+    assert.equal((await call("POST", "/api/game/select", { gameId: "eroberungs-wuerfel" }, ben.token)).status, 403);
 });
 await test("Unbekanntes Spiel → 404", async () => {
     assert.equal((await call("POST", "/api/game/select", { gameId: "gibtsnicht" }, anna.token)).status, 404);
@@ -229,20 +229,20 @@ await test("Unbekanntes Spiel → 404", async () => {
 await test("Aktion ohne laufendes Spiel → 409", async () => {
     assert.equal((await call("POST", "/api/game/action", { action: { type: "roll" } }, ben.token)).status, 409);
 });
-await test("Host startet Risiko → alle bekommen game-state", async () => {
+await test("Host startet Eroberungs-Würfel → alle bekommen game-state", async () => {
     const stateAnna = streamAnna.next(e => e.type === "game-state" && e.data, "game-state Anna");
     const stateBen = streamBen.next(e => e.type === "game-state" && e.data, "game-state Ben");
     const lobbyEvent = streamBen.next(e => e.type === "lobby" && e.data?.game, "Lobby mit Spiel");
-    assert.equal((await call("POST", "/api/game/select", { gameId: "risiko-wuerfel" }, anna.token)).status, 200);
+    assert.equal((await call("POST", "/api/game/select", { gameId: "eroberungs-wuerfel" }, anna.token)).status, 200);
 
     const state = (await stateBen).data.state;
     await stateAnna;
     assert.equal(state.round, 1);
     assert.deepEqual(state.maxDice, { attacker: 3, defender: 2 });
-    assert.equal((await lobbyEvent).data.game.name, "Risiko-Würfel");
+    assert.equal((await lobbyEvent).data.game.name, "Eroberungs-Würfel");
 });
 await test("Zweites Spiel starten → 409", async () => {
-    assert.equal((await call("POST", "/api/game/select", { gameId: "risiko-wuerfel" }, anna.token)).status, 409);
+    assert.equal((await call("POST", "/api/game/select", { gameId: "eroberungs-wuerfel" }, anna.token)).status, 409);
 });
 await test("Verteidiger mit 3 Würfeln → 400", async () => {
     const r = await call("POST", "/api/game/action", { action: { type: "roll", side: "defender", count: 3 } }, ben.token);
@@ -291,7 +291,7 @@ await test("Nächster Wurf startet neue Runde", async () => {
 await test("Regeln über 500 Runden (Gleichstand → Verteidiger)", async () => {
     // Spielmodul direkt testen, ohne Server
     const require = createRequire(import.meta.url);
-    const game = require(path.join(PROJECT_ROOT, "games", "risiko-wuerfel", "game.js"));
+    const game = require(path.join(PROJECT_ROOT, "games", "eroberungs-wuerfel", "game.js"));
 
     let state = game.createState({ players: [] });
     for (let i = 0; i < 500; i++) {

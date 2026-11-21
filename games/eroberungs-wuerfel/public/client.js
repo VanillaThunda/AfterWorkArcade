@@ -1,5 +1,5 @@
 /**
- * Risiko-Würfel – Client-Teil.
+ * Eroberungs-Würfel – Client-Teil.
  *
  * Wird vom Lobby-System per dynamic import() geladen, sobald der Host das
  * Spiel auswählt. Schnittstelle (siehe dokumentation.md):

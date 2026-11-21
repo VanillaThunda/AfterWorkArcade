@@ -9,7 +9,7 @@
 import assert from "node:assert/strict";
 import { createTestRunner } from "./helpers.mjs";
 import {
-    parseVersion, compareVersions, latestTag, changelogSection, checkRelease
+    parseVersion, compareVersions, latestTag, changelogSection, checkRelease, pushPlan
 } from "../scripts/git/release-check.mjs";
 
 const { test, section, summary } = createTestRunner();
@@ -77,6 +77,15 @@ await test("changelogSection liefert den Abschnitt für die Tag-Beschreibung", a
     assert.match(notes, /### Hinzugefügt\n- Neues Spiel/);
     assert.ok(!notes.includes("0.5.1"));
     assert.equal(changelogSection(CHANGELOG, "9.9.9"), null);
+});
+
+section("GitHub");
+
+await test("pushPlan: mit Remote origin → main, dev und Tags hochladen; ohne → nichts", async () => {
+    assert.deepEqual(pushPlan("origin\n"), ["push", "origin", "main", "dev", "--follow-tags"]);
+    assert.deepEqual(pushPlan("backup\r\norigin\r\n"), ["push", "origin", "main", "dev", "--follow-tags"]);
+    assert.equal(pushPlan(""), null);
+    assert.equal(pushPlan("backup\n"), null);
 });
 
 process.exit(summary());

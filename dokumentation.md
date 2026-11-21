@@ -4,7 +4,7 @@
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
-und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Risiko-Würfel**, das
+und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Eroberungs-Würfel**, das
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
 Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
 Echtzeit-Bombenspiel **Bomben-Labyrinth** und das rundenbasierte **Artillerie-Duell**.
@@ -20,7 +20,7 @@ Echtzeit-Bombenspiel **Bomben-Labyrinth** und das rundenbasierte **Artillerie-Du
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell](#8-spiele-risiko-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell)
+8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -42,7 +42,7 @@ Die Startmeldung zeigt die erreichbaren Adressen, z. B.:
 
 ```
 [Spiele] Geladen: Revierkampf (revierkampf)
-[Spiele] Geladen: Risiko-Würfel (risiko-wuerfel)
+[Spiele] Geladen: Eroberungs-Würfel (eroberungs-wuerfel)
 [Spiele] Geladen: Schocken (schocken)
 AfterWork Arcade v0.5.1 läuft auf Port 3000
   Lokal:    http://localhost:3000
@@ -173,7 +173,7 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 ├─ tests/                  automatisierte Tests (siehe Abschnitt 12)
 ├─ games/
 │  ├─ _vorlage/            Kopiervorlage für neue Spiele (wird nicht geladen)
-│  ├─ risiko-wuerfel/
+│  ├─ eroberungs-wuerfel/
 │  │  ├─ game.js           Server-Teil (Regeln, Zustand)
 │  │  └─ public/           Browser-Teil (client.js, style.css, preview.webp)
 │  ├─ revierkampf/
@@ -412,9 +412,9 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Risiko-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell
+## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell
 
-### 8.1 Risiko-Würfel
+### 8.1 Eroberungs-Würfel
 
 Ablauf einer Runde:
 
@@ -936,7 +936,7 @@ Server auf Port 3000 stört also nicht.
 
 | Befehl                   | Datei                      | Dauer  | Prüft |
 |--------------------------|----------------------------|--------|-------|
-| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Spieleliste (Sortierung, Vorschaubilder), Login, Chats, Lobbys, Passwörter, Host-Rechte, Risiko-Regeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
+| `npm test`               | `tests/api.test.mjs`       | ~4 s   | API und Echtzeit-Events: Spieleliste (Sortierung, Vorschaubilder), Login, Chats, Lobbys, Passwörter, Host-Rechte, Eroberungsregeln, Revierkampf inkl. Spiel-Takt (Ticks ohne Aktion, Stopp bei Spielende), Schocken mit gefilterter Sicht (`viewFor`), Sicherheit der Dateiauslieferung |
 | `npm run test:revierkampf` | `tests/revierkampf.test.mjs` | ~2 s | Revierkampf-Logik direkt (ohne Server): Karte, Startphase, Wachstum, Angriffe, Bots, Sieg, Verlassen |
 | `npm run test:schocken`  | `tests/schocken.test.mjs`  | ~1 s   | Schocken-Logik direkt: Wertung/Rangfolge, Becher & Aufdecken, nur Einsen herauslegen, Sechsen drehen, Vorgabe, Deckel, Hälften/Finale, viewFor, Timer, „Weiter“, Bots |
 | `npm run test:maexchen`  | `tests/maexchen.test.mjs`  | < 1 s  | Mäxchen-Logik direkt: Werte/Rangfolge, Ansagen, Glauben/Anzweifeln, Mäxchen-Regeln, Leben/Ausscheiden, viewFor, Timer, Bots, Verlassen; Bot-Namen (`server/bot-names.js`) |
@@ -944,7 +944,7 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:bombenlabyrinth` | `tests/bombenlabyrinth.test.mjs` | ~3 s | Bomben-Labyrinth-Logik direkt: Arena, Taste halten/Tempo, Blockaden, Bomben-Limit, Explosion/Reichweite/Kisten, Kettenreaktion, Ausscheiden, Power-ups, Schrumpfen, Zeitgrenze, Runden/Partie, Bots (Persönlichkeit, Flucht, Sackgasse, Duelle), Verlassen, viewFor |
 | `npm run test:artillerie` | `tests/artillerie.test.mjs` | ~3 s | Artillerie-Logik direkt: Gelände, Krater, Flugbahn (Wind, Kraft, Weltrand), Rumpftreffer, Schaden und Fallschaden, Splitter, Bohrer, Munition, Fahren, Zielphase (bereit/Zeitablauf), gleichzeitige Salve, Runden/Partie, Bots (Bedenkzeit, Treffer, Bohrer, Stärke, Einschießen), Verlassen, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Risiko-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
 | `npm run test:all`       | `tests/run-all.mjs`        | ~130 s | alle zehn nacheinander |
 

@@ -10,11 +10,13 @@
  *  3. In main\: git merge --no-ff dev  (der pre-merge-commit-Hook prüft erneut)
  *  4. Annotated Tag vX.Y.Z mit dem Changelog-Abschnitt als Beschreibung.
  *  5. In dev\: git merge --ff-only main  (dev wieder auf dem Stand von main)
+ *  6. Falls ein Remote "origin" existiert: main, dev und Tags nach GitHub hochladen.
+ *     Ein Fehler dabei bricht das Release nicht ab, es gibt nur eine Warnung.
  */
 
 import { spawnSync } from "node:child_process";
 import { git, currentBranch, fail } from "./git/git-utils.mjs";
-import { checkWorktree, changelogSection } from "./git/release-check.mjs";
+import { checkWorktree, changelogSection, pushPlan } from "./git/release-check.mjs";
 
 const devRoot = git(["rev-parse", "--show-toplevel"]);
 
@@ -63,4 +65,17 @@ git(["merge", "--ff-only", "main"], { cwd: devRoot });
 
 const commit = git(["rev-parse", "--short", "main"], { cwd: devRoot });
 console.log(`\n✔ ${tag} veröffentlicht (main = ${commit}, dev ist auf demselben Stand).`);
+
+// --- 6. GitHub (falls Remote "origin" eingerichtet ist) -----------------------
+const push = pushPlan(git(["remote"], { cwd: devRoot }));
+if (push) {
+    console.log(`\nHochladen nach GitHub (git ${push.join(" ")}) …`);
+    const result = spawnSync("git", push, { cwd: devRoot, stdio: "inherit" });
+    if (result.status === 0) {
+        console.log("✔ main, dev und Tags sind auf GitHub.");
+    } else {
+        // Kein Abbruch: Das Release ist lokal fertig, der Upload lässt sich nachholen.
+        console.warn(`⚠ Hochladen fehlgeschlagen (offline oder nicht angemeldet). Nachholen mit:\n  git -C "${devRoot}" ${push.join(" ")}`);
+    }
+}
 console.log("  Syncthing überträgt main\\ auf die Synology – dort den Server neu starten.");

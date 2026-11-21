@@ -21,6 +21,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 - **Risiko-Würfel heißt jetzt Eroberungs-Würfel** (Ordner und ID `eroberungs-wuerfel`). Regeln und Bedienung bleiben gleich; die Beschreibung nennt keinen Markennamen mehr.
 - Neue Commits laufen unter dem GitHub-Namen mit anonymer noreply-Adresse.
 
+### Behoben
+- Ein seltener Fehlschlag im Lichtrenner-Test „Bots überleben in freier Arena“: Der Test nutzt jetzt feste Zufalls-Startwerte und läuft dadurch immer gleich ab.
+
 ---
 
 ## [0.10.0] – 2026-11-21

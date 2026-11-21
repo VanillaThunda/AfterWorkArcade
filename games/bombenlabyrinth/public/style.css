@@ -88,7 +88,7 @@
 .bl-legend { font-weight: 600; }
 .bl-setup { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 12px 0; }
 .bl-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
-.bl-placements { text-align: left; display: inline-block; margin: 4px 0 10px; }
+.bl-placements { text-align: left; display: table; margin: 4px auto 12px; } /* eigene Zeile, zentriert – Button darunter */
 .bl-muted { color: var(--color-muted, #666); font-size: 13px; }
 
 /* --- Seitenleiste ---------------------------------------------------------- */

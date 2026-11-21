@@ -384,6 +384,34 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await anna.eval(`return document.querySelectorAll('.game-tile-select[aria-pressed="true"]').length;`), 0, "Auswahl zurückgesetzt");
     await anna.click('.game-picker [data-action="cancel"]');
 });
+await test("Spielauswahl bei kleinem Fenster und auf dem Handy: nichts abgeschnitten", async () => {
+    for (const [width, height, shot] of [[1000, 560, "16b-spielauswahl-klein.png"], [390, 800, "16c-spielauswahl-mobil.png"]]) {
+        await anna.viewport(width, height);
+        await sleep(200);
+        await anna.click("#open-game-picker");
+        await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
+        await sleep(200);
+        const check = await anna.eval(`
+            const dialog = document.getElementById("game-picker").getBoundingClientRect();
+            const start = document.querySelector(".game-picker-start").getBoundingClientRect();
+            const tiles = [...document.querySelectorAll(".game-tile")];
+            return {
+                clipped: tiles.filter(t => t.scrollHeight > t.clientHeight + 1).map(t => t.dataset.gameId),
+                buttonsTooSmall: tiles.filter(t => t.querySelector(".game-tile-select").offsetHeight < 30).map(t => t.dataset.gameId),
+                dialogInside: dialog.left >= 0 && dialog.right <= innerWidth + 0.5 && dialog.top >= 0 && dialog.bottom <= innerHeight + 0.5,
+                startInside: start.right <= innerWidth + 0.5 && start.bottom <= innerHeight + 0.5,
+                gridScrolls: document.querySelector(".game-picker-grid").scrollHeight > document.querySelector(".game-picker-grid").clientHeight
+            };`);
+        assert.deepEqual(check.clipped, [], `${width}×${height}: Kacheln abgeschnitten`);
+        assert.deepEqual(check.buttonsTooSmall, [], `${width}×${height}: Auswahl-Buttons zu klein`);
+        assert.ok(check.dialogInside, `${width}×${height}: Dialog passt ins Fenster`);
+        assert.ok(check.startInside, `${width}×${height}: „Spiel starten“ sichtbar`);
+        assert.ok(check.gridScrolls, `${width}×${height}: Kacheln scrollen statt gestaucht zu werden`);
+        await anna.screenshot(shot);
+        await anna.click('.game-picker [data-action="cancel"]');
+    }
+    await anna.viewport(1400, 1000);
+});
 await test("Host startet Spiel → lädt bei beiden", async () => {
     await startGame(anna, "risiko-wuerfel");
     await anna.waitFor(`document.querySelector(".rw")`, "Spiel bei Anna");

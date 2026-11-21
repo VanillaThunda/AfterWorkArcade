@@ -196,6 +196,7 @@ function startRound(state, now) {
             alive: true, diedAt: null,
             bombs: START_BOMBS, range: START_RANGE, speed: 0
         });
+        if (player.bot) Object.assign(player, { botTarget: null, botTargetUntil: 0, botPause: 0 });
     });
 
     state.rng = rng.state;
@@ -223,14 +224,17 @@ function startMatch(state, now) {
         ...humans.map(m => ({ id: m.id, name: m.name, bot: false })),
         ...botNames.map((name, i) => ({ id: `bot-${i + 1}`, name, bot: true }))
     ];
+    const rng = createRng(state.rng);
     state.players = participants.map((p, i) => ({
         ...p,
         color: COLORS[i],
         x: 0, y: 0, held: null, facing: "down", cooldown: 0,
         alive: false, left: false, diedAt: null,
         bombs: START_BOMBS, range: START_RANGE, speed: 0,
-        wins: 0, survivedTicks: 0
+        wins: 0, survivedTicks: 0,
+        ...(p.bot ? { traits: rollTraits(rng), botTarget: null, botTargetUntil: 0, botPause: 0 } : {})
     }));
+    state.rng = rng.state;
     state.matchNumber += 1;
     state.round = 0;
     state.result = null;
@@ -473,71 +477,164 @@ function explore(state, cells, bombs, danger, bot) {
     return result;
 }
 
-/** Nächstes sicheres Feld (ohne Gefahr) – erster Schritt dorthin oder undefined. */
-function escapeRoute(state, cells, bombs, danger, bot) {
-    const reach = explore(state, cells, bombs, danger, bot);
-    let best = null;
-    for (const [index, info] of reach) {
-        if (danger.has(index)) continue;
-        if (!best || info.dist < best.dist) best = info;
+/**
+ * Sicheres Feld (ohne Gefahr) – erster Schritt dorthin oder null.
+ * Mit rng wird zufällig unter den nächsten Feldern (Abstand ≤ Minimum + 1) gewählt,
+ * bevorzugt ohne andere Spieler darauf; so trennen sich Bots auf demselben Feld.
+ */
+function escapeRoute(state, cells, bombs, danger, runner, rng = null) {
+    const reach = explore(state, cells, bombs, danger, runner);
+    let min = Infinity;
+    for (const [index, info] of reach) if (!danger.has(index)) min = Math.min(min, info.dist);
+    if (min === Infinity) return null;
+    if (!rng) {
+        for (const [index, info] of reach) if (!danger.has(index) && info.dist === min) return info;
     }
-    return best;
+    const occupied = new Set(state.players.filter(p => p.alive && p !== runner).map(p => indexOf(p.x, p.y)));
+    const near = [...reach].filter(([index, info]) => !danger.has(index) && info.dist <= min + 1);
+    const free = near.filter(([index]) => !occupied.has(index));
+    const pool = free.length > 0 ? free : near;
+    return pool[Math.floor(rng.next() * pool.length)][1];
 }
 
-/** Wie lohnend wäre eine Bombe auf (x, y)? Kisten 1, Gegner 3 Punkte. */
-function bombValue(state, cells, bot, x, y) {
+/** Gegner, die eine Bombe auf (x, y) mit Reichweite range treffen würde. */
+function enemiesInBlast(state, cells, bot, x, y, range) {
+    const hit = new Set(blastCells(cells, x, y, range));
+    return state.players.filter(p => p.alive && p !== bot && hit.has(indexOf(p.x, p.y)));
+}
+
+/** Säße der Gegner nach einer Bombe auf (x, y) in der Falle (kein Fluchtweg)? */
+function wouldTrap(state, cells, bot, x, y, enemy) {
+    const bombs = [...state.bombs, { x, y, owner: bot.id, range: bot.range, fuse: FUSE_TICKS }];
+    return !escapeRoute(state, cells, bombs, dangerMap(state, cells, bombs), enemy);
+}
+
+/**
+ * Wie lohnend wäre eine Bombe auf (x, y)? Kisten zählen 1, getroffene Gegner je
+ * nach Angriffslust, eingesperrte Gegner sehr viel.
+ */
+function bombValue(state, cells, bot, x, y, { withTraps = false } = {}) {
     let value = 0;
-    const hit = blastCells(cells, x, y, bot.range);
-    for (const index of hit) if (cells[index] === CRATE) value += 1;
-    for (const other of state.players) {
-        if (other.alive && other !== bot && hit.includes(indexOf(other.x, other.y))) value += 3;
+    for (const index of blastCells(cells, x, y, bot.range)) if (cells[index] === CRATE) value += 1;
+    for (const enemy of enemiesInBlast(state, cells, bot, x, y, bot.range)) {
+        value += 1 + 2 * bot.traits.aggression;
+        if (withTraps && wouldTrap(state, cells, bot, x, y, enemy)) value += 20;
     }
     return value;
 }
 
-function botThink(state, cells, bot, rng) {
-    if (bot.cooldown > 1) return; // erst kurz vor dem nächsten Schritt neu entscheiden
-    const danger = dangerMap(state, cells, state.bombs);
+/** Zufällige Persönlichkeit eines Bots (gespeichert in player.traits). */
+function rollTraits(rng) {
+    return {
+        aggression: 0.3 + rng.next() * 0.7,  // Gewicht für Gegner und Jagd
+        greed: 0.5 + rng.next(),             // Gewicht für Power-ups
+        wander: rng.next(),                  // Stärke des Zufalls bei der Zielwahl
+        bombChance: 0.6 + rng.next() * 0.35, // Neigung, eine lohnende Bombe auch zu legen
+        reaction: 3 + Math.floor(rng.next() * 16) // Ticks, bis eine fremde Bombe bemerkt wird (0,15–0,9 s)
+    };
+}
+
+/** Neues Ziel wählen. @returns {number|null} Feldindex */
+function chooseTarget(state, cells, bot, reach, danger, rng, hunting) {
     const here = indexOf(bot.x, bot.y);
+    const { aggression, greed, wander } = bot.traits;
+    const canBomb = state.bombs.filter(b => b.owner === bot.id).length < bot.bombs;
+    const enemies = state.players.filter(p => p.alive && p !== bot);
+    const otherTargets = new Set(state.players.filter(p => p.bot && p !== bot && p.alive && p.botTarget !== null).map(p => p.botTarget));
 
-    // 1. In Gefahr → fliehen
-    if (danger.has(here)) {
-        const route = escapeRoute(state, cells, state.bombs, danger, bot);
-        bot.held = route?.first ?? null;
-        return;
-    }
-
-    // 2. Lohnt eine Bombe hier, und gibt es danach einen Fluchtweg?
-    const ownBombs = state.bombs.filter(b => b.owner === bot.id).length;
-    const onBomb = state.bombs.some(b => b.x === bot.x && b.y === bot.y);
-    if (!onBomb && ownBombs < bot.bombs && bombValue(state, cells, bot, bot.x, bot.y) > 0) {
-        const bombs = [...state.bombs, { x: bot.x, y: bot.y, owner: bot.id, range: bot.range, fuse: FUSE_TICKS }];
-        const route = escapeRoute(state, cells, bombs, dangerMap(state, cells, bombs), bot);
-        if (route?.first && rng.next() < 0.85) {
-            placeBomb(state, bot);
-            bot.held = route.first;
-            return;
-        }
-    }
-
-    // 3. Ziel suchen: Power-up, Stelle mit Sprengwert, sonst irgendwo hin
-    const reach = explore(state, cells, state.bombs, danger, bot);
     let best = null;
     let bestScore = -Infinity;
     for (const [index, info] of reach) {
-        if (danger.has(index)) continue;
+        if (index === here || danger.has(index)) continue;
         const x = index % WIDTH;
         const y = Math.floor(index / WIDTH);
-        let score = -info.dist;
-        if (Object.hasOwn(POWERUPS, cells[index])) score += 12;
-        if (index !== here && ownBombs < bot.bombs) score += Math.min(4, bombValue(state, cells, bot, x, y)) * 2;
-        score += rng.next() * 1.5;
+        let score = -info.dist * (hunting ? 0.6 : 1);
+        if (Object.hasOwn(POWERUPS, cells[index])) score += 12 * greed;
+        if (canBomb) score += Math.min(10, bombValue(state, cells, bot, x, y, { withTraps: hunting })) * 2;
+        if (hunting && enemies.length > 0) {
+            const nearest = Math.min(...enemies.map(e => Math.abs(e.x - x) + Math.abs(e.y - y)));
+            score -= nearest * aggression * 0.8;
+        } else if (enemies.some(e => Math.abs(e.x - x) + Math.abs(e.y - y) <= 1)) {
+            score -= 3; // nicht allen hinterherlaufen
+        }
+        if (otherTargets.has(index)) score -= 6;
+        score += rng.next() * (2 + 6 * wander);
         if (score > bestScore) {
             bestScore = score;
-            best = info;
+            best = index;
         }
     }
-    bot.held = best?.first ?? null;
+    return best;
+}
+
+function botThink(state, cells, bot, rng) {
+    if (bot.cooldown > 1) return; // erst kurz vor dem nächsten Schritt neu entscheiden
+    // Fremde Bomben bemerkt ein Bot erst nach seiner Reaktionszeit – so macht er
+    // gelegentlich Fehler, und Duelle entscheiden sich nicht erst beim Schrumpfen.
+    const noticed = state.bombs.filter(b => b.owner === bot.id || FUSE_TICKS - b.fuse >= bot.traits.reaction);
+    const danger = dangerMap(state, cells, noticed);
+    const here = indexOf(bot.x, bot.y);
+
+    // 1. In Gefahr → fliehen (zufällig unter den nächsten sicheren Feldern)
+    if (danger.has(here)) {
+        const route = escapeRoute(state, cells, state.bombs, danger, bot, rng);
+        bot.held = route?.first ?? null;
+        bot.botTarget = null;
+        bot.botPause = 0;
+        return;
+    }
+
+    // 2. Kurz zögern (bricht gleichförmige Bewegungen auf)
+    if (bot.botPause > 0) {
+        bot.botPause -= 1;
+        bot.held = null;
+        return;
+    }
+    if (rng.next() < 0.015) {
+        bot.botPause = 2 + Math.floor(rng.next() * 5);
+        bot.held = null;
+        return;
+    }
+
+    const reach = explore(state, cells, state.bombs, danger, bot);
+    const aliveCount = state.players.filter(p => p.alive).length;
+    let cratesLeft = false;
+    for (const index of reach.keys()) {
+        if (blastCells(cells, index % WIDTH, Math.floor(index / WIDTH), bot.range).some(i => cells[i] === CRATE)) {
+            cratesLeft = true;
+            break;
+        }
+    }
+    const hunting = aliveCount <= 2 || !cratesLeft;
+
+    // 3. Lohnt eine Bombe hier, und gibt es danach einen Fluchtweg?
+    const ownBombs = state.bombs.filter(b => b.owner === bot.id).length;
+    const onBomb = state.bombs.some(b => b.x === bot.x && b.y === bot.y);
+    if (!onBomb && ownBombs < bot.bombs) {
+        const value = bombValue(state, cells, bot, bot.x, bot.y, { withTraps: true });
+        const chance = value >= 20 ? 1 : bot.traits.bombChance;
+        if (value > 0 && rng.next() < chance) {
+            const newBomb = { x: bot.x, y: bot.y, owner: bot.id, range: bot.range, fuse: FUSE_TICKS };
+            const danger2 = dangerMap(state, cells, [...noticed, newBomb]);
+            const route = escapeRoute(state, cells, [...state.bombs, newBomb], danger2, bot, rng);
+            if (route?.first) {
+                placeBomb(state, bot);
+                bot.held = route.first;
+                bot.botTarget = null;
+                return;
+            }
+        }
+    }
+
+    // 4. Ziel verfolgen – es gilt 1–3 s, dann (oder wenn ungültig) neu wählen
+    const target = bot.botTarget;
+    const valid = target !== null && target !== here && reach.has(target) && !danger.has(target)
+        && state.roundTicks < bot.botTargetUntil;
+    if (!valid) {
+        bot.botTarget = chooseTarget(state, cells, bot, reach, danger, rng, hunting);
+        bot.botTargetUntil = state.roundTicks + 20 + Math.floor(rng.next() * 40);
+    }
+    bot.held = bot.botTarget === null ? null : reach.get(bot.botTarget).first;
 }
 
 // ===========================================================================
@@ -625,7 +722,9 @@ function viewFor(state) {
         countdownMs: state.phase === "countdown" ? remaining : null,
         roundOverMs: state.phase === "roundOver" ? remaining : null,
         suddenDeathInMs: state.phase === "running" ? Math.max(0, (SUDDEN_DEATH_TICKS - state.roundTicks) * TICK_MS) : null,
-        players: state.players.map(({ cooldown, ...player }) => ({ ...player, stepMs: STEP_TICKS[player.speed] * TICK_MS }))
+        // Bot-Interna (Persönlichkeit, Ziel, Pause) gehen die Clients nichts an
+        players: state.players.map(({ cooldown, traits, botTarget, botTargetUntil, botPause, ...player }) =>
+            ({ ...player, stepMs: STEP_TICKS[player.speed] * TICK_MS }))
     };
 }
 

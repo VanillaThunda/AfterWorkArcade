@@ -231,7 +231,12 @@ export function mount(container, ctx) {
         }
     }
 
-    function drawPlayer(player, pos) {
+    /**
+     * Figur zeichnen. Stehen mehrere auf demselben Feld, wird ein Kreis mit
+     * Tortenstücken in allen Farben gezeichnet (Augen von der ersten Figur).
+     */
+    function drawPlayer(group, pos) {
+        const player = group[0];
         const cx = (pos.x + 0.5) * CELL;
         const cy = (pos.y + 0.5) * CELL;
         const radius = CELL * 0.36;
@@ -239,12 +244,36 @@ export function mount(container, ctx) {
         g.beginPath();
         g.ellipse(cx, cy + radius * 0.9, radius * 0.9, radius * 0.3, 0, 0, Math.PI * 2);
         g.fill();
-        g.fillStyle = player.color;
+        if (group.length === 1) {
+            g.fillStyle = player.color;
+            g.beginPath();
+            g.arc(cx, cy, radius, 0, Math.PI * 2);
+            g.fill();
+        } else {
+            const slice = (Math.PI * 2) / group.length;
+            group.forEach((member, i) => {
+                const start = -Math.PI / 2 + i * slice;
+                g.fillStyle = member.color;
+                g.beginPath();
+                g.moveTo(cx, cy);
+                g.arc(cx, cy, radius, start, start + slice);
+                g.closePath();
+                g.fill();
+            });
+            g.strokeStyle = "rgba(0, 0, 0, 0.55)";
+            g.lineWidth = 1.5;
+            g.beginPath();
+            group.forEach((_, i) => {
+                const angle = -Math.PI / 2 + i * slice;
+                g.moveTo(cx, cy);
+                g.lineTo(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+            });
+            g.stroke();
+        }
         g.strokeStyle = "#111";
         g.lineWidth = 2;
         g.beginPath();
         g.arc(cx, cy, radius, 0, Math.PI * 2);
-        g.fill();
         g.stroke();
         // Augen in Blickrichtung
         const [fx, fy] = FACING[player.facing] ?? [0, 1];
@@ -260,7 +289,7 @@ export function mount(container, ctx) {
             g.arc(ex + fx * 2, ey + fy * 2, radius * 0.1, 0, Math.PI * 2);
             g.fill();
         }
-        if (player.id === ctx.me.id) {
+        if (group.some(member => member.id === ctx.me.id)) {
             g.strokeStyle = "#ffffff";
             g.lineWidth = 3;
             g.beginPath();
@@ -317,10 +346,27 @@ export function mount(container, ctx) {
             g.globalAlpha = 1;
         }
 
+        // Figuren, deren gezeichnete Mitte weniger als ein halbes Feld auseinanderliegt,
+        // als eine geteilte Figur zeichnen (Reihenfolge wie in state.players → feste Farben)
+        const groups = [];
         for (const player of state.players) {
             if (!player.alive) continue;
             const entry = motion.get(player.id);
-            drawPlayer(player, entry ? positionOf(entry, now) : player);
+            const pos = entry ? positionOf(entry, now) : { x: player.x, y: player.y };
+            const group = groups.find(gr => Math.hypot(gr.pos.x - pos.x, gr.pos.y - pos.y) < 0.5);
+            if (group) {
+                group.members.push(player);
+                group.points.push(pos);
+            } else {
+                groups.push({ pos, members: [player], points: [pos] });
+            }
+        }
+        for (const { members, points } of groups) {
+            const center = {
+                x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
+                y: points.reduce((sum, p) => sum + p.y, 0) / points.length
+            };
+            drawPlayer(members, center);
         }
 
         // Im Countdown: Namen über den Figuren

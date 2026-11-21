@@ -329,6 +329,48 @@ await test("Bot flieht vor einer fremden Bombe", async () => {
     state = ticks(state, 30);
     assert.equal(state.players.find(p => p.id === bot.id).alive, true);
 });
+await test("Jeder Bot hat eine eigene Persönlichkeit", async () => {
+    const state = running({ players: [anna], bots: 4 });
+    const traits = state.players.filter(p => p.bot).map(p => JSON.stringify(p.traits));
+    assert.equal(new Set(traits).size, 4);
+    assert.equal(find(state, anna).traits, undefined, "Menschen haben keine");
+});
+await test("Bot sperrt einen Gegner in einer Sackgasse ein", async () => {
+    let state = running({ players: [anna], bots: 1 });
+    const bot = state.players.find(p => p.bot);
+    // Anna in der Ecke (1,1), unten versperrt eine Kiste – einziger Weg führt über den Bot
+    state = arena(state, [[1, 1], [2, 1]], { "1,2": CRATE });
+    for (let i = 0; i < 10 && state.bombs.length === 0; i++) state = tick(state);
+    assert.deepEqual(state.bombs.map(b => [b.x, b.y, b.owner]), [[2, 1, bot.id]], "Bombe direkt vor der Sackgasse");
+    state = ticks(state, FUSE_TICKS);
+    assert.equal(find(state, anna).alive, false, "Anna erwischt");
+    assert.equal(state.roundWinner, bot.id);
+});
+await test("Bot-Duelle: getrennte Wege, Entscheidung meist vor dem Schrumpfen", async () => {
+    let early = 0;
+    let same = 0;
+    let both = 0;
+    const rounds = 8;
+    for (let round = 0; round < rounds; round++) {
+        let state = startMatch({ players: [anna], bots: 2, wins: 1 });
+        clock = NOW + COUNTDOWN_MS;
+        state = game.tick(state, { now: clock });
+        Object.assign(find(state, anna), { alive: false, x: 0, y: 0 }); // nur die Bots spielen
+        let n = 0;
+        while (state.phase === "running" && n < ROUND_MAX_TICKS + 10) {
+            state = tick(state);
+            n++;
+            const [a, b] = state.players.filter(p => p.alive);
+            if (a && b) {
+                both++;
+                if (a.x === b.x && a.y === b.y) same++;
+            }
+        }
+        if (n < SUDDEN_DEATH_TICKS) early++;
+    }
+    assert.ok(same / both < 0.15, `${(100 * same / both).toFixed(1)} % der Zeit auf demselben Feld`);
+    assert.ok(early >= rounds / 2, `${early} von ${rounds} Duellen vor dem Schrumpfen entschieden`);
+});
 await test("Nur-Bot-Runden: Bots überleben lange, keine Ausnahmen, Ticks schnell", async () => {
     const started = performance.now();
     let totalTicks = 0;
@@ -370,6 +412,10 @@ await test("viewFor: keine versteckten Power-ups, Restzeiten statt Zeitstempel",
     const run = game.viewFor(running(), anna.id);
     assert.equal(run.suddenDeathInMs, (SUDDEN_DEATH_TICKS - run.roundTicks) * TICK_MS);
     assert.ok(run.players.every(p => !("cooldown" in p) && p.stepMs === STEP_TICKS[0] * TICK_MS));
+    const withBots = game.viewFor(running({ bots: 2 }), anna.id);
+    for (const key of ["traits", "botTarget", "botTargetUntil", "botPause"]) {
+        assert.ok(withBots.players.every(p => !(key in p)), `${key} nicht sichtbar`);
+    }
     assert.doesNotThrow(() => JSON.stringify(run));
 });
 

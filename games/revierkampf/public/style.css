@@ -100,8 +100,8 @@
 
 .rk-final {
     text-align: left;
-    display: inline-block;
-    margin: 6px 0 12px;
+    display: table;          /* eigene Zeile, zentriert – Button darunter */
+    margin: 6px auto 12px;
     padding-left: 22px;
 }
 

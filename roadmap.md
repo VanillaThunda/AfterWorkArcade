@@ -65,7 +65,6 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Genre | Kurzidee | Lernzeit | Spieler | Aufwand | Technik |
 |---|---|---|---|---|---|---|---|
-| 1 | **Bomben-Labyrinth** | Bomberman-Genre | Rasterarena, Bomben legen, Kisten sprengen, Power-ups (Reichweite, Anzahl, Tempo). Wer zuletzt steht, gewinnt. | 1 min | 2–8 + Bots | mittel | Tick 100 ms, Raster 15×13, Pfeiltasten/WASD |
 | 2 | **Artillerie-Duell** | Worms-/Scorched-Earth-Genre | Rundenbasiert: Winkel, Kraft und Wind, zerstörbares Gelände. Der Server berechnet die Flugbahn, der Client spielt sie als Animation ab. Wenige Waffen (Granate, Splitter, Bohrer). | 2 min | 2–6 + Bots | mittel–hoch | rundenbasiert, Gelände als Bitmap-Text wie die Revierkampf-Karte |
 | 3 | **Burgen-Duell** | Forts-Genre (vereinfacht) | Bauphase (60 s): Mauern und Kanonen auf der eigenen Seite bauen. Schussphase: abwechselnd feuern. Wer den gegnerischen Kern trifft, gewinnt. | 3 min | 2–8 (2 Teams) | hoch | baut auf dem Artillerie-Duell auf, später als **Modus davon** |
 
@@ -92,12 +91,12 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 #### Empfohlene Reihenfolge
 1. ~~**Mäxchen**~~ – umgesetzt in 0.7.0.
 2. ~~**Lichtrenner**~~ – umgesetzt in 0.8.0.
-3. **Bomben-Labyrinth:** das Highlight aus den gewünschten Genres.
+3. ~~**Bomben-Labyrinth**~~ – umgesetzt in 0.9.0.
 4. **Artillerie-Duell,** danach **Burgen-Duell** als Modus davon.
 5. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
 
 **Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
-`public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Das Bomben-Labyrinth nutzt ihn mit.
+`public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth.
 
 ### Spielauswahl bei vielen Spielen
 - Kategorien/Tags pro Spiel (`meta.tags`, z. B. „Würfel“, „Echtzeit“, „Karten“, „Strategie“) als Filter-Chips im Auswahl-Dialog.

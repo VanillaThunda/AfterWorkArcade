@@ -8,6 +8,28 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.9.0] – 2026-11-21
+
+### Hinzugefügt
+- **Neues Spiel: Bomben-Labyrinth** (Echtzeit, 1–8 Spieler plus 0–7 Bots).
+  - Rasterarena 15 × 13 mit Säulen und zufälligen Kisten. Bomben explodieren nach 2,5 s in alle vier Richtungen, sprengen Kisten und lösen andere Bomben aus.
+  - Power-ups unter den Kisten: 🔥 Reichweite, 💣 eine Bombe mehr, 👟 Tempo. Wo sie liegen, erfahren die Browser erst beim Sprengen.
+  - Steuerung per Taste halten (Pfeiltasten/WASD), Bombe mit Leertaste; auf dem Handy Steuerkreuz und 💣-Knopf.
+  - Nach 90 s schrumpft die Arena spiralförmig, nach 150 s endet die Runde unentschieden.
+  - Runden und Siege wie bei Lichtrenner (1–5 Siege zum Gewinnen).
+  - Bots mit eigener Persönlichkeit (Angriffslust, Gier, Zufall, Reaktionszeit): Sie fliehen vor Explosionen, sprengen Kisten, sammeln Power-ups und sperren Gegner in Sackgassen ein.
+  - Stehen mehrere Figuren auf einem Feld, erscheinen sie als geteilter Kreis in allen Farben.
+- **Steuerungs-Baustein** `controls.js`: neue Optionen `onRelease` (Taste/Knopf losgelassen) und `actionButton` (Aktionstaste plus Touch-Knopf). Lichtrenner bleibt unverändert.
+- Test `tests/bombenlabyrinth.test.mjs` (`npm run test:bombenlabyrinth`). Er läuft auch beim Merge nach main mit.
+- Der UI-Test kann Tasten gedrückt halten (`page.keyDown`/`page.keyUp`) und prüft die Spielauswahl bei kleinem Fenster und in Handygröße.
+
+### Behoben
+- **Spielauswahl:** Bei kleinem Browserfenster wurden die Kacheln gestaucht, und der „Auswählen“-Button war nicht zu sehen. Jetzt scrollt die Liste stattdessen.
+- **Spielauswahl auf dem Smartphone:** Der Dialog füllt den Bildschirm ohne Überstand, die Kacheln sind kompakt (Bild links, Text rechts, Button darunter).
+- **Endbildschirme** von Revierkampf, Mäxchen und Lichtrenner: Rangliste zentriert, „Neue Partie“/„Neue Runde“ steht mittig darunter statt daneben.
+
+---
+
 ## [0.8.0] – 2026-11-20
 
 ### Hinzugefügt

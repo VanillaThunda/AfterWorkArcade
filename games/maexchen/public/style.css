@@ -192,7 +192,7 @@
 .mx-overlay-box p { margin: 6px 0; font-size: 14px; }
 .mx-setup { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 12px 0; }
 .mx-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
-.mx-placements { text-align: left; display: inline-block; margin: 4px 0 10px; }
+.mx-placements { text-align: left; display: table; margin: 4px auto 12px; } /* eigene Zeile, zentriert – Button darunter */
 .mx-muted { color: var(--color-muted, #666); font-size: 13px; }
 
 /* --- Eigener Bereich -------------------------------------------------------- */

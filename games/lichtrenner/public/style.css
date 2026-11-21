@@ -71,7 +71,7 @@
 .lr-overlay-box p { margin: 6px 0; font-size: 14px; }
 .lr-setup { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; margin: 12px 0; }
 .lr-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
-.lr-placements { text-align: left; display: inline-block; margin: 4px 0 10px; }
+.lr-placements { text-align: left; display: table; margin: 4px auto 12px; } /* eigene Zeile, zentriert – Button darunter */
 .lr-muted { color: var(--color-muted, #666); font-size: 13px; }
 
 /* --- Seitenleiste ---------------------------------------------------------- */

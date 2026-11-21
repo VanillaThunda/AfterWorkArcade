@@ -114,6 +114,13 @@ const EXPECTED_CONSOLE = /status of 4\d\d/;
 const consoleProblems = [];
 
 /** Öffnet eine Seite in einem eigenen Browser-Kontext (= eigener Spieler). */
+/** CDP-Angaben zu einer Taste (key, code, Windows-Tastencode). */
+function keyInfo(key) {
+    const codes = { ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, w: 87, a: 65, s: 83, d: 68, " ": 32 };
+    const code = key === " " ? "Space" : key.length === 1 ? `Key${key.toUpperCase()}` : key;
+    return { key, code, windowsVirtualKeyCode: codes[key] };
+}
+
 async function openPage(cdp, label) {
     const { browserContextId } = await cdp.send("Target.createBrowserContext");
     const { targetId } = await cdp.send("Target.createTarget", { url: "about:blank", browserContextId });
@@ -179,11 +186,12 @@ async function openPage(cdp, label) {
                 .find(e => e.textContent.trim() === ${JSON.stringify(text)}).click();`),
         /** Echter Tastendruck über CDP (landet beim fokussierten Element). */
         async press(key) {
-            const codes = { ArrowUp: 38, ArrowDown: 40, ArrowLeft: 37, ArrowRight: 39, w: 87, a: 65, s: 83, d: 68 };
-            const base = { key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key, windowsVirtualKeyCode: codes[key] };
-            await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", ...base, text: key.length === 1 ? key : undefined }, sessionId);
-            await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...base }, sessionId);
-        }
+            await page.keyDown(key);
+            await page.keyUp(key);
+        },
+        /** Taste nur drücken bzw. nur loslassen (für „Taste halten“). */
+        keyDown: key => cdp.send("Input.dispatchKeyEvent", { type: "keyDown", ...keyInfo(key), text: key.length === 1 ? key : undefined }, sessionId),
+        keyUp: key => cdp.send("Input.dispatchKeyEvent", { type: "keyUp", ...keyInfo(key) }, sessionId)
     };
 
     await page.viewport(1400, 1000);
@@ -339,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 5, "5 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 6, "6 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 5`, "5 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 6`, "6 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -825,6 +833,66 @@ await test("Host beendet Lichtrenner → zurück in der Lobby", async () => {
     await ben.waitFor(`!document.querySelector(".lr")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".lr")`, "Spiel weg bei Anna");
     assert.equal(await anna.eval(`return document.getElementById("awa-game-kit-controls") !== null;`), true, "Styles bleiben (einmalig)");
+});
+
+section("Bomben-Labyrinth");
+
+const sentOfType = (page, type) => page.eval(`return window.__actions.filter(a => a.type === ${JSON.stringify(type)});`);
+
+await test("Host startet Bomben-Labyrinth → Countdown, dann läuft die Runde", async () => {
+    await startGame(anna, "bombenlabyrinth");
+    await anna.waitFor(`document.querySelector('.bl[data-phase="setup"] .bl-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.bl[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".bl-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".bl-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".bl-overlay").textContent.includes("Bots: 1")`, "Bens Anzeige: 1 Bot");
+    await recordActions(anna);
+    await anna.click(".bl-start");
+    for (const page of [anna, ben]) {
+        await page.waitFor(`document.querySelector('.bl[data-phase="countdown"]') && !document.querySelector(".bl-countdown").hidden`, "Countdown sichtbar");
+    }
+    assert.equal(await anna.eval(`return document.querySelectorAll(".bl-scores li").length;`), 3, "2 Spieler + 1 Bot");
+    await anna.waitFor(`document.querySelector('.bl[data-phase="running"]')`, "Runde läuft", 6000);
+    assert.match(await anna.text(".bl-stats"), /💣 1 +🔥 2 +👟 1/, "Power-up-Stand");
+});
+await test("Steuerung: Taste halten läuft, Loslassen stoppt, Leertaste legt Bombe", async () => {
+    await anna.eval(`document.activeElement?.blur();`);
+    await anna.keyDown("ArrowRight");
+    await anna.waitFor(`window.__actions.some(a => a.type === "move" && a.dir === "right")`, "move right gesendet");
+    await sleep(150);
+    await anna.keyDown("ArrowDown");
+    await anna.waitFor(`window.__actions.some(a => a.type === "move" && a.dir === "down")`, "zweite Taste übernimmt");
+    await anna.keyUp("ArrowDown");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "move").at(-1).dir === "right"`, "zurück zur noch gehaltenen Taste");
+    await anna.keyUp("ArrowRight");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "move").at(-1).dir === null`, "Loslassen → Stillstand");
+    const moves = (await sentOfType(anna, "move")).length;
+    await anna.press("ArrowLeft");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "move").length === ${moves + 2}`, "Antippen = Halten + Loslassen");
+
+    await anna.press(" ");
+    await anna.waitFor(`window.__actions.some(a => a.type === "bomb")`, "Leertaste legt Bombe");
+
+    const before = (await sentOfType(anna, "move")).length + (await sentOfType(anna, "bomb")).length;
+    await anna.eval(`document.getElementById("lobby-chat-input").focus();`);
+    for (const key of ["w", "a", " "]) await anna.press(key);
+    await sleep(200);
+    assert.equal((await sentOfType(anna, "move")).length + (await sentOfType(anna, "bomb")).length, before, "keine Steuerbefehle aus dem Chatfeld");
+    assert.equal(await anna.eval(`return document.getElementById("lobby-chat-input").value;`), "wa ", "Zeichen landen im Chat");
+    await anna.eval(`const i = document.getElementById("lobby-chat-input"); i.value = ""; i.blur();`);
+    await anna.screenshot("22-bombenlabyrinth.png");
+});
+await test("Bomben-Labyrinth im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".bl-log") < 60, "Ereignisliste dunkel");
+    await ben.screenshot("23-bombenlabyrinth-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Bomben-Labyrinth → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".bl")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".bl")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

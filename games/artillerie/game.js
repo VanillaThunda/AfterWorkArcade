@@ -62,6 +62,17 @@ const MAX_WINS = 5;
 const DEFAULT_WINS = 3;
 const MAX_VOLLEYS = 12;
 
+/** Bot-Stärke: Streuung von Winkel (°) und Kraft (Anteil) – per Simulation kalibriert. */
+const BOT_LEVELS = Object.freeze({
+    leicht: { name: "Leicht", angle: 20, power: 0.24 },
+    mittel: { name: "Mittel", angle: 6, power: 0.07 },
+    schwer: { name: "Schwer", angle: 3.5, power: 0.04 }
+});
+const DEFAULT_BOT_LEVEL = "mittel";
+const AIM_ZERO_START = 1.4;          // erster Schuss auf ein neues Ziel streut stärker …
+const AIM_ZERO_STEP = 0.8;           // … jeder weitere wird genauer …
+const AIM_ZERO_MIN = 0.6;            // … bis zu diesem Faktor
+
 const TICK_MS = 200;
 const AIM_MS = 20_000;
 const FLIGHT_PAD_MS = 1_500;         // Pause nach der Animation
@@ -364,6 +375,7 @@ function startRound(state, now) {
             angle: x < WIDTH / 2 ? 50 : 130, power: 60, weapon: "granate",
             ammo: { ...START_AMMO }, fuel: FUEL, ready: false
         });
+        if (player.bot) Object.assign(player, { aimTarget: null, aimShots: 0 }); // neues Gelände → neu einschießen
     });
     state.rng = rng.state;
     state.round += 1;
@@ -433,7 +445,7 @@ function startMatch(state, now) {
         x: 0, y: 0, hp: START_HP, alive: false, left: false,
         angle: 45, power: 60, weapon: "granate", ammo: { ...START_AMMO }, fuel: FUEL, ready: false,
         wins: 0, damageDealt: 0,
-        ...(p.bot ? { traits: rollTraits(rng), readyAt: 0, planned: false } : {})
+        ...(p.bot ? { traits: rollTraits(rng), readyAt: 0, planned: false, aimTarget: null, aimShots: 0 } : {})
     }));
     state.rng = rng.state;
     state.matchNumber += 1;
@@ -565,10 +577,23 @@ function finishMatch(state, winnerId) {
 
 function rollTraits(rng) {
     return {
-        accuracy: 0.35 + rng.next() * 0.6,   // 1 = perfekt
+        spread: 0.8 + rng.next() * 0.4,      // Faktor auf die Streuung der Stufe (kleiner = genauer)
         aggression: 0.3 + rng.next() * 0.7,  // bevorzugt angeschlagene Gegner, nutzt Splitter
         mobility: rng.next()                 // fährt öfter
     };
+}
+
+/** Annähernd normalverteilte Zufallszahl um 0 (Standardabweichung ≈ 0,58, Bereich −2…2). */
+function gaussish(rng) {
+    return rng.next() + rng.next() + rng.next() + rng.next() - 2;
+}
+
+/**
+ * Streufaktor fürs Einschießen: Der erste Schuss auf ein Ziel streut stärker,
+ * jeder weitere auf dasselbe Ziel (ohne zu fahren) wird genauer.
+ */
+function zeroingFactor(shotsAtTarget) {
+    return Math.max(AIM_ZERO_MIN, AIM_ZERO_START * AIM_ZERO_STEP ** shotsAtTarget);
 }
 
 /** Bester Schuss für eine Waffe per Rastersuche. @returns {{angle, power, miss}} */
@@ -603,15 +628,21 @@ function searchShot(state, bot, target, weapon, tanks) {
 
 /** Ziel, Waffe, Fahrt und Zielwerte eines Bots für diese Salve festlegen. */
 function botPlan(state, bot, rng) {
-    const { accuracy, aggression, mobility } = bot.traits;
+    const { spread, aggression, mobility } = bot.traits;
+    const level = BOT_LEVELS[state.settings.botLevel] ?? BOT_LEVELS[DEFAULT_BOT_LEVEL];
     const enemies = state.players.filter(p => p.alive && p !== bot);
     if (enemies.length === 0) return;
 
-    // Gelegentlich ein Stück fahren (bevorzugt aus Senken heraus)
+    // Gelegentlich ein Stück fahren (bevorzugt aus Senken heraus) – danach neu einschießen
     if (rng.next() < mobility * 0.4) {
         const dir = rng.next() < 0.5 ? -1 : 1;
         const steps = 1 + Math.floor(rng.next() * 4);
-        for (let i = 0; i < steps; i++) if (!driveTank(state, bot, dir)) break;
+        let moved = false;
+        for (let i = 0; i < steps; i++) {
+            if (!driveTank(state, bot, dir)) break;
+            moved = true;
+        }
+        if (moved) bot.aimShots = 0;
     }
 
     const target = enemies
@@ -632,10 +663,16 @@ function botPlan(state, bot, rng) {
         if (crowd || rng.next() < aggression * 0.3) weapon = "splitter";
     }
 
-    const error = 1 - accuracy;
+    // Streuung: Stufe × Persönlichkeit × Einschießen
+    if (bot.aimTarget !== target.id) {
+        bot.aimTarget = target.id;
+        bot.aimShots = 0;
+    }
+    const factor = spread * zeroingFactor(bot.aimShots ?? 0);
+    bot.aimShots = (bot.aimShots ?? 0) + 1;
     bot.weapon = weapon;
-    bot.angle = clamp(Math.round(shot.angle + (rng.next() * 2 - 1) * 6 * error), 0, 180);
-    bot.power = clamp(Math.round(shot.power * (1 + (rng.next() * 2 - 1) * 0.08 * error)), 10, 100);
+    bot.angle = clamp(Math.round(shot.angle + gaussish(rng) * level.angle * factor), 0, 180);
+    bot.power = clamp(Math.round(shot.power * (1 + gaussish(rng) * level.power * factor)), 10, 100);
 }
 
 // ===========================================================================
@@ -696,6 +733,10 @@ const actions = {
                 throw new Error(`Es sind 0 bis ${MAX_BOTS} Bots möglich.`);
             }
             state.settings.bots = bots;
+        }
+        if (action.botLevel !== undefined) {
+            if (!Object.hasOwn(BOT_LEVELS, action.botLevel)) throw new Error("Unbekannte Bot-Stärke.");
+            state.settings.botLevel = action.botLevel;
         }
         if (action.wins !== undefined) {
             const wins = Number(action.wins);
@@ -768,7 +809,7 @@ function viewFor(state, userId) {
         aimingMs: state.phase === "aiming" ? remaining : null,
         flightMs: state.phase === "flight" ? remaining : null,
         roundOverMs: state.phase === "roundOver" ? remaining : null,
-        players: state.players.map(({ traits, readyAt, planned, ...player }) => (hideAim && player.id !== userId
+        players: state.players.map(({ traits, readyAt, planned, aimTarget, aimShots, ...player }) => (hideAim && player.id !== userId
             ? { ...player, angle: null, power: null, weapon: null }
             : player))
     };
@@ -793,7 +834,8 @@ module.exports = {
             phase: "setup",
             matchNumber: 0,
             members: players.map(({ id, name }) => ({ id, name })),
-            settings: { bots: DEFAULT_BOTS, maxBots: MAX_BOTS, wins: DEFAULT_WINS, minWins: MIN_WINS, maxWins: MAX_WINS },
+            settings: { bots: DEFAULT_BOTS, maxBots: MAX_BOTS, botLevel: DEFAULT_BOT_LEVEL, wins: DEFAULT_WINS, minWins: MIN_WINS, maxWins: MAX_WINS },
+            botLevels: Object.fromEntries(Object.entries(BOT_LEVELS).map(([id, level]) => [id, level.name])),
             world: { width: WIDTH, height: HEIGHT, col: COL, tankHalf: TANK_HALF, tankHeight: TANK_HEIGHT, barrel: BARREL, windMax: WIND_MAX, fuel: FUEL, startHp: START_HP },
             weapons: Object.fromEntries(Object.entries(WEAPONS).map(([id, w]) => [id, { name: w.name, radius: w.radius }])),
             maxVolleys: MAX_VOLLEYS,
@@ -885,6 +927,6 @@ module.exports = {
     _internals: {
         WIDTH, HEIGHT, COL, COLS, GRAVITY, POWER_SCALE, WIND_MAX, TANK_HALF, TANK_HEIGHT, START_HP, FUEL, MOVE_STEP,
         MAX_CLIMB, FALL_SAFE, WEAPONS, START_AMMO, MAX_VOLLEYS, AIM_MS, FLIGHT_PAD_MS, ROUND_PAUSE_MS, BOT_READY_MAX_MS,
-        createRng, groundAt, restY, generateTerrain, carve, launch, simulateShot, resolveVolley, blastDamage, settleTanks, searchShot, botPlan
+        BOT_LEVELS, DEFAULT_BOT_LEVEL, createRng, zeroingFactor, groundAt, restY, generateTerrain, carve, launch, simulateShot, resolveVolley, blastDamage, settleTanks, searchShot, botPlan
     }
 };

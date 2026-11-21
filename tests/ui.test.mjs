@@ -931,7 +931,10 @@ await test("Host startet Artillerie-Duell → beide in der Zielphase", async () 
     await ben.waitFor(`document.querySelector('.ad[data-phase="setup"]')`, "Setup bei Ben");
     assert.equal(await ben.eval(`return document.querySelector(".ad-start") === null;`), true, "Ben hat keinen Start-Button");
     await anna.eval(`const s = document.querySelector(".ad-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
-    await ben.waitFor(`document.querySelector(".ad-overlay").textContent.includes("Bots: 1")`, "Bens Anzeige: 1 Bot");
+    await ben.waitFor(`document.querySelector(".ad-overlay").textContent.includes("Bots: 1 (mittel)")`, "Bens Anzeige: 1 Bot, mittel");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".ad-bot-level option").length;`), 3, "drei Bot-Stärken");
+    await anna.eval(`const s = document.querySelector(".ad-bot-level"); s.value = "leicht"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".ad-overlay").textContent.includes("Bots: 1 (leicht)")`, "Bens Anzeige: leicht");
     await recordActions(anna);
     await anna.click(".ad-start");
     for (const page of [anna, ben]) {
@@ -953,6 +956,12 @@ await test("Zielen per Taste halten, Kraft mit E, Feuer frei mit Leertaste → S
     await anna.keyDown("e");
     await anna.keyUp("e");
     await anna.waitFor(`Number(document.querySelector(".ad-power").value) === ${power + 1}`, "Kraft +1");
+    // Regler ohne Innenabstand: bei 100 sitzt der Knopf am rechten Rand der Schiene
+    const range = await anna.eval(`
+        const input = document.querySelector(".ad-power");
+        const style = getComputedStyle(input);
+        return { padding: style.paddingLeft + " " + style.paddingRight, border: style.borderLeftWidth };`);
+    assert.deepEqual(range, { padding: "0px 0px", border: "0px" }, "Schieberegler ohne Innenabstand und Rahmen");
     await anna.click('.ad-weapon[data-weapon="splitter"]');
     await anna.waitFor(`document.querySelector('.ad-weapon[data-weapon="splitter"]').getAttribute("aria-pressed") === "true"`, "Splitter gewählt");
     await anna.screenshot("24-artillerie.png");

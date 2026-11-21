@@ -16,7 +16,7 @@ const require = createRequire(import.meta.url);
 const game = require(path.join(PROJECT_ROOT, "games", "artillerie", "game.js"));
 const {
     WIDTH, COLS, WIND_MAX, TANK_HALF, TANK_HEIGHT, START_HP, FUEL, MOVE_STEP, FALL_SAFE, WEAPONS, START_AMMO, MAX_VOLLEYS, AIM_MS,
-    FLIGHT_PAD_MS, ROUND_PAUSE_MS, BOT_READY_MAX_MS,
+    FLIGHT_PAD_MS, ROUND_PAUSE_MS, BOT_READY_MAX_MS, BOT_LEVELS, DEFAULT_BOT_LEVEL, zeroingFactor,
     createRng, restY, generateTerrain, carve, simulateShot, resolveVolley, blastDamage, settleTanks, searchShot, botPlan
 } = game._internals;
 const { test, section, summary } = createTestRunner();
@@ -92,6 +92,11 @@ await test("Einstellungen und Start nur für den Host, Grenzen geprüft", async 
     assert.throws(() => game.handleAction(state, { type: "start" }, ben, ctx()), /Host/);
     assert.throws(() => game.handleAction(state, { type: "settings", bots: 6 }, anna, ctx()), /Bots/);
     assert.throws(() => game.handleAction(state, { type: "settings", wins: 9 }, anna, ctx()), /Siege/);
+    assert.equal(state.settings.botLevel, DEFAULT_BOT_LEVEL);
+    assert.equal(act(state, anna, { type: "settings", botLevel: "schwer" }).settings.botLevel, "schwer");
+    assert.throws(() => game.handleAction(state, { type: "settings", botLevel: "unmöglich" }, anna, ctx()), /Bot-Stärke/);
+    assert.throws(() => game.handleAction(state, { type: "settings", botLevel: "leicht" }, ben, ctx()), /Host/);
+    assert.deepEqual(Object.keys(state.botLevels), Object.keys(BOT_LEVELS));
     const alone = act(game.createState({ players: [anna], hostId: anna.id }), anna, { type: "settings", bots: 0 });
     assert.throws(() => game.handleAction(alone, { type: "start" }, anna, ctx()), /mindestens 2/);
     assert.throws(() => game.handleAction(state, { type: "warp" }, anna, ctx()), /Unbekannte Aktion/);
@@ -322,14 +327,15 @@ await test("Bot meldet sich nach seiner Bedenkzeit bereit", async () => {
     state = game.tick(state, { now: NOW + BOT_READY_MAX_MS });
     assert.equal(state.phase, "flight");
 });
-await test("Treffsicherer Bot trifft einen ungedeckten Gegner innerhalb von 3 Salven", async () => {
+await test("Starker Bot trifft einen ungedeckten Gegner innerhalb von 4 Salven", async () => {
     let state = startMatch({ players: [anna], bots: 1 });
+    state.settings.botLevel = "schwer";
     const bot = state.players.find(p => p.bot);
-    bot.traits = { accuracy: 1, aggression: 0.5, mobility: 0 };
+    bot.traits = { spread: 0.8, aggression: 0.5, mobility: 0 };
     arena(state, [200, 600]);
     botPlan(state, bot, createRng(7));
     let now = NOW;
-    for (let volley = 0; volley < 3 && find(state, anna).hp === START_HP; volley++) {
+    for (let volley = 0; volley < 4 && find(state, anna).hp === START_HP; volley++) {
         state = act(state, anna, { type: "ready", angle: 135, power: 100 }, now);
         now += BOT_READY_MAX_MS;
         state = game.tick(state, { now });
@@ -342,7 +348,7 @@ await test("Treffsicherer Bot trifft einen ungedeckten Gegner innerhalb von 3 Sa
 await test("Eingegrabener Bot nimmt den Bohrer", async () => {
     let state = startMatch({ players: [anna], bots: 1 });
     const bot = state.players.find(p => p.bot);
-    bot.traits = { accuracy: 1, aggression: 0.5, mobility: 0 };
+    bot.traits = { spread: 0.8, aggression: 0.5, mobility: 0 };
     const heights = flat(100);
     for (let i = 60; i < 70; i++) heights[i] = 300;   // Wand rechts vom Bot (x 120–140)
     for (let i = 30; i < 40; i++) heights[i] = 300;   // Wand links (x 60–80)
@@ -352,6 +358,38 @@ await test("Eingegrabener Bot nimmt den Bohrer", async () => {
     const ms = performance.now() - started;
     assert.equal(bot.weapon, "bohrer");
     assert.ok(ms < 150, `Bot-Planung ${ms.toFixed(0)} ms`);
+});
+await test("Bot-Stärke: Leicht trifft deutlich seltener als Schwer", async () => {
+    const hitsFor = level => {
+        let hits = 0;
+        for (let seed = 1; seed <= 24; seed++) {
+            const state = arena(startMatch({ players: [anna], bots: 1 }), [600, 200]);
+            state.settings.botLevel = level;
+            const bot = state.players.find(p => p.bot);
+            Object.assign(bot, { traits: { spread: 1, aggression: 0.5, mobility: 0 }, aimTarget: null, aimShots: 0 });
+            botPlan(state, bot, createRng(seed));
+            const tanks = state.players.map(p => ({ id: p.id, x: p.x, y: p.y, alive: true }));
+            const { impact } = simulateShot(state.heights, tanks, bot, bot.angle, bot.power, bot.weapon, 0);
+            if (impact && blastDamage(find(state, anna), state.heights, impact.x, impact.y, WEAPONS[bot.weapon].radius, 10) > 0) hits++;
+        }
+        return hits;
+    };
+    const easy = hitsFor("leicht");
+    const hard = hitsFor("schwer");
+    assert.ok(hard >= easy + 6, `leicht ${easy}/24, schwer ${hard}/24`);
+});
+await test("Einschießen: erster Schuss streut stärker, danach genauer; Zielwechsel beginnt neu", async () => {
+    assert.ok(zeroingFactor(0) > 1 && zeroingFactor(1) < zeroingFactor(0) && zeroingFactor(2) < zeroingFactor(1));
+    assert.equal(zeroingFactor(50), zeroingFactor(51), "Untergrenze");
+    const state = arena(startMatch({ players: [anna], bots: 1 }), [600, 200]);
+    const bot = state.players.find(p => p.bot);
+    bot.traits = { spread: 1, aggression: 0.5, mobility: 0 };
+    botPlan(state, bot, createRng(1));
+    botPlan(state, bot, createRng(2));
+    assert.deepEqual([bot.aimTarget, bot.aimShots], [anna.id, 2]);
+    bot.aimTarget = "jemand-anderes";
+    botPlan(state, bot, createRng(3));
+    assert.deepEqual([bot.aimTarget, bot.aimShots], [anna.id, 1], "Zielwechsel → neu einschießen");
 });
 
 // ===========================================================================
@@ -368,7 +406,7 @@ await test("viewFor: fremde Zielwerte in der Zielphase verborgen, keine Interna"
     assert.deepEqual([viewBen.angle, viewBen.power, viewBen.weapon], [null, null, null]);
     const own = view.players.find(p => p.id === anna.id);
     assert.equal(typeof own.angle, "number");
-    assert.ok(view.players.every(p => !("traits" in p) && !("readyAt" in p) && !("planned" in p)));
+    assert.ok(view.players.every(p => ["traits", "readyAt", "planned", "aimTarget", "aimShots"].every(key => !(key in p))));
     state = act(state, anna, { type: "ready" });
     state = act(state, ben, { type: "ready" });
     state = game.tick(state, { now: NOW + BOT_READY_MAX_MS });

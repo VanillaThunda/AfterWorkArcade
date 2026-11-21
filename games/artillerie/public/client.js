@@ -571,6 +571,7 @@ export function mount(container, ctx) {
                 const row = createElement("div", "ad-setup");
                 row.append(
                     createSelect("Bots", "ad-bots", 0, state.settings.maxBots, state.settings.bots, value => ctx.sendAction({ type: "settings", bots: value })),
+                    createChoice("Bot-Stärke", "ad-bot-level", Object.entries(state.botLevels), state.settings.botLevel, value => ctx.sendAction({ type: "settings", botLevel: value })),
                     createSelect("Siege zum Gewinnen", "ad-wins-select", state.settings.minWins, state.settings.maxWins, state.settings.wins, value => ctx.sendAction({ type: "settings", wins: value }))
                 );
                 const start = createElement("button", "ad-start", "Partie starten");
@@ -579,7 +580,8 @@ export function mount(container, ctx) {
                 start.addEventListener("click", () => ctx.sendAction({ type: "start" }));
                 box.append(row, start);
             } else {
-                box.append(createElement("p", "ad-muted", `Bots: ${state.settings.bots} · Siege: ${state.settings.wins} – der Host startet die Partie.`));
+                const level = state.botLevels[state.settings.botLevel] ?? "";
+                box.append(createElement("p", "ad-muted", `Bots: ${state.settings.bots}${state.settings.bots > 0 ? ` (${level.toLowerCase()})` : ""} · Siege: ${state.settings.wins} – der Host startet die Partie.`));
             }
             box.append(createElement("p", "ad-muted", "Steuerung: ←/→ fahren, ↑/↓ Rohr drehen, Q/E Kraft, Leertaste Feuer frei – oder die Regler unter dem Spielfeld."));
         } else if (state.phase === "roundOver") {
@@ -603,6 +605,21 @@ export function mount(container, ctx) {
             }
         }
         overlay.replaceChildren(box);
+    }
+
+    /** Auswahlfeld mit Text-Optionen: options = [[wert, text], …]. */
+    function createChoice(labelText, className, options, current, onChange) {
+        const label = createElement("label", null, `${labelText} `);
+        const select = createElement("select", className);
+        for (const [value, text] of options) {
+            const option = createElement("option", null, text);
+            option.value = value;
+            option.selected = value === current;
+            select.append(option);
+        }
+        select.addEventListener("change", () => onChange(select.value));
+        label.append(select);
+        return label;
     }
 
     function createSelect(labelText, className, min, max, current, onChange) {

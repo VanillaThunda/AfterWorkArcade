@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 7, "7 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 8, "8 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 7`, "7 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 8`, "8 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -986,6 +986,54 @@ await test("Host beendet Artillerie-Duell → zurück in der Lobby", async () =>
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".ad")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".ad")`, "Spiel weg bei Anna");
+});
+
+section("Feierabend-Fäuste");
+
+await test("Figurenwahl: jede Figur nur einmal, Host stellt ein und startet", async () => {
+    await startGame(anna, "feierabend-faeuste");
+    await anna.waitFor(`document.querySelector('.ff[data-phase="setup"] .ff-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.ff[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".ff-figure").length;`), 4, "vier Figuren");
+    await anna.click('.ff-figure[data-figure="hausmeister"]');
+    await ben.waitFor(`document.querySelector('.ff-figure[data-figure="hausmeister"]').disabled`, "bei Ben vergeben");
+    await ben.click('.ff-figure[data-figure="kurierin"]');
+    await anna.waitFor(`document.querySelector('.ff-figure[data-figure="kurierin"]').textContent.includes("Ben")`, "Anna sieht Bens Wahl");
+    assert.equal(await ben.eval(`return document.querySelector(".ff-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".ff-allies"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".ff-overlay").textContent.includes("Bot-Kollegen: 1")`, "Bens Anzeige: 1 Bot-Kollege");
+    await anna.screenshot("27-feierabend-faeuste-wahl.png");
+    await recordActions(anna);
+    await anna.click(".ff-start");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.ff[data-phase="playing"]') && document.querySelector(".ff-overlay").hidden`, "Spiel läuft");
+});
+await test("Steuerung: Laufen per Taste halten, Schlag, Sprung und Spezial", async () => {
+    await anna.eval(`document.activeElement?.blur();`);
+    await anna.keyDown("ArrowRight");
+    await anna.keyDown("ArrowDown");
+    await anna.waitFor(`window.__actions.some(a => a.type === "move" && a.dx === 1 && a.dz === 1)`, "schräg laufen");
+    await sleep(300);
+    await anna.keyUp("ArrowDown");
+    await anna.waitFor(`window.__actions.filter(a => a.type === "move").at(-1).dz === 0`, "nur noch rechts");
+    await anna.keyUp("ArrowRight");
+    await anna.waitFor(`(a => a.dx === 0 && a.dz === 0)(window.__actions.filter(a => a.type === "move").at(-1))`, "stehen bleiben");
+    for (const key of [" ", "j", "k", "l"]) await anna.press(key);
+    await anna.waitFor(`["attack", "jump", "special"].every(t => window.__actions.some(a => a.type === t))
+        && window.__actions.filter(a => a.type === "attack").length >= 2`, "Schlag (Leertaste und J), Sprung, Spezial");
+    await sleep(600);
+    await anna.screenshot("28-feierabend-faeuste.png");
+});
+await test("Feierabend-Fäuste im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".ff-log") < 60, "Ereignisliste dunkel");
+    await ben.screenshot("29-feierabend-faeuste-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Feierabend-Fäuste → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".ff")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".ff")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

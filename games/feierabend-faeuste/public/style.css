@@ -1,0 +1,127 @@
+/*
+ * Feierabend-Fäuste – Styles.
+ * Alle Klassen beginnen mit "ff-". Das Spielfeld behält in beiden Designs seine
+ * eigenen Farben; Overlays und Seitenleiste nutzen die Theme-Variablen.
+ */
+
+.ff-root { container-type: inline-size; }
+
+.ff {
+    display: grid;
+    gap: 12px;
+}
+
+/* --- Spielfeld --------------------------------------------------------------- */
+.ff-stage {
+    position: relative;
+    width: 100%;
+    max-width: max(320px, calc((100vh - 300px) * 16 / 9));
+    margin: 0 auto;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 3px solid #1f1a2e;
+    background: #1f1a2e;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.ff-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+.ff-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: rgba(15, 10, 30, 0.55);
+}
+.ff-overlay[hidden] { display: none; }
+.ff-overlay-box {
+    width: min(660px, 100%);
+    box-sizing: border-box;
+    max-height: 100%;
+    overflow: auto;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+.ff-overlay-box h3 { margin: 0 0 6px; }
+.ff-overlay-box p { margin: 6px 0; font-size: 14px; }
+.ff-muted { color: var(--color-muted, #666); font-size: 13px; }
+.ff-winner { font-weight: 700; font-size: 16px !important; }
+
+/* Figurenwahl */
+.ff-figures {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+    gap: 8px;
+    margin: 8px 0;
+}
+.ff-figure {
+    display: grid;
+    gap: 3px;
+    padding: 8px 10px;
+    border: 2px solid var(--color-border, #ddd);
+    border-left: 6px solid var(--ff-figure-color, #888);
+    border-radius: 10px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: left;
+    font-size: 13px;
+    white-space: normal;
+}
+.ff-figure strong { font-size: 15px; }
+.ff-figure-role { color: var(--color-muted, #666); font-size: 12px; }
+.ff-figure-info { font-size: 11.5px; line-height: 1.3; }
+.ff-figure-owner { font-size: 12px; font-weight: 700; color: var(--color-muted, #666); }
+.ff-figure.is-mine { border-color: var(--ff-figure-color, #888); box-shadow: 0 0 0 2px var(--ff-figure-color, #888); }
+.ff-figure.is-mine .ff-figure-owner { color: var(--color-text, #222); }
+.ff-figure:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.ff-setup { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 8px 0 10px; }
+.ff-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.ff-start { font-weight: 700; }
+
+/* Ergebnis: Tabelle zentriert, Button darunter */
+.ff-placements {
+    margin: 8px auto 12px;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.ff-placements th, .ff-placements td { padding: 3px 8px; border-bottom: 1px solid var(--color-border, #ddd); }
+.ff-placements th { font-size: 12px; color: var(--color-muted, #666); }
+.ff-placements tr.is-me td { font-weight: 700; }
+.ff-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ff-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+
+/* --- Seitenleiste ---------------------------------------------------------- */
+.ff-side {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+    align-items: start;
+}
+.ff-box { display: grid; gap: 8px; }
+.ff-box h4 { margin: 0; }
+.ff-hint { margin: 0; font-size: 13px; color: var(--color-muted, #666); }
+.ff-log {
+    margin: 0;
+    padding: 6px 10px 6px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    font-size: 13px;
+    color: var(--color-muted, #666);
+    max-height: 140px;
+    overflow: auto;
+}
+.ff-log li:first-child { color: var(--color-text, #222); }

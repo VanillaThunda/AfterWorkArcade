@@ -1,6 +1,6 @@
 {
     "name": "afterwork-arcade",
-    "version": "0.12.0",
+    "version": "0.13.0",
     "description": "Lobby-System für Multiplayer-Spiele und -Tools im lokalen Netzwerk",
     "main": "server.js",
     "private": true,

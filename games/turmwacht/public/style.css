@@ -1,0 +1,173 @@
+/*
+ * Turmwacht – Styles.
+ * Alle Klassen beginnen mit "tw-". Die Karte behält in beiden Designs ihre
+ * eigenen Farben; Leiste und Overlays nutzen die Theme-Variablen.
+ */
+
+.tw-root { container-type: inline-size; }
+
+.tw {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 270px;
+    gap: 14px;
+    align-items: start;
+}
+@container (max-width: 760px) {
+    .tw { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --- Karte ------------------------------------------------------------------- */
+.tw-stage {
+    position: relative;
+    width: 100%;
+    max-width: max(320px, calc((100vh - 260px) * 16 / 10));
+    margin: 0 auto;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 3px solid #4e6b34;
+    background: #4e6b34;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+.tw-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.tw-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    background: rgba(20, 30, 15, 0.55);
+}
+.tw-overlay[hidden] { display: none; }
+.tw-overlay-box {
+    width: min(620px, 100%);
+    box-sizing: border-box;
+    max-height: 100%;
+    overflow: auto;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+.tw-overlay-box h3 { margin: 0 0 6px; }
+.tw-overlay-box p { margin: 6px 0; font-size: 14px; }
+.tw-winner { font-weight: 700; font-size: 16px !important; }
+
+/* Ergebnis: Tabelle zentriert, Button darunter */
+.tw-placements {
+    margin: 8px auto 12px;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.tw-placements th, .tw-placements td { padding: 3px 8px; border-bottom: 1px solid var(--color-border, #ddd); }
+.tw-placements th { font-size: 12px; color: var(--color-muted, #666); }
+.tw-placements tr.is-me td { font-weight: 700; }
+.tw-num { text-align: right; font-variant-numeric: tabular-nums; }
+.tw-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; flex: none; }
+
+/* --- Leiste -------------------------------------------------------------------- */
+.tw-side { display: grid; gap: 10px; min-width: 0; }
+.tw-side [hidden] { display: none !important; }
+.tw-muted { color: var(--color-muted, #666); font-size: 13px; }
+
+.tw-hud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    align-items: baseline;
+    font-size: 17px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.tw-lives { color: #c62828; }
+.tw-lives.is-low { animation: tw-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes tw-pulse { to { opacity: 0.45; } }
+:root[data-theme="dark"] .tw-lives { color: #ff6b6b; }
+
+.tw-upcoming { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 12px; }
+.tw-chip {
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border, #ddd);
+    border-left: 6px solid var(--tw-chip, #888);
+    background: var(--color-surface, #fff);
+}
+
+.tw-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tw-actions button { flex: 1 1 auto; }
+.tw-ready.is-on { outline: 2px solid #2ec27e; }
+
+.tw-team { display: grid; gap: 4px; }
+.tw-member {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    font-size: 13px;
+    min-width: 0;
+}
+.tw-member.is-me { font-weight: 700; }
+.tw-member-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-gold { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw-member.is-me .tw-gold { font-size: 16px; }
+.tw-gifts { display: flex; gap: 3px; }
+.tw-gift { padding: 2px 6px; font-size: 12px; min-height: 0; }
+
+.tw-panel {
+    display: grid;
+    gap: 6px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+}
+.tw-panel h4 { margin: 0; }
+.tw-panel p { margin: 0; font-size: 13px; }
+.tw-build { display: grid; gap: 5px; }
+.tw-build-btn {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    text-align: left;
+    font-size: 13px;
+}
+.tw-build-icon { width: 14px; height: 14px; border-radius: 4px; flex: none; border: 1px solid rgba(0, 0, 0, 0.3); }
+.tw-build-name { flex: 1; }
+.tw-build-cost { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw-facts { font-variant-numeric: tabular-nums; }
+.tw-tower-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tw-tower-actions button { flex: 1 1 auto; }
+
+.tw-setup { display: flex; flex-wrap: wrap; gap: 10px; }
+.tw-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.tw-setup-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.tw-setup-buttons button { flex: 1 1 auto; }
+.tw-start { font-weight: 700; }
+
+.tw-log {
+    margin: 0;
+    padding: 6px 10px 6px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    font-size: 12.5px;
+    color: var(--color-muted, #666);
+    max-height: 130px;
+    overflow: auto;
+}
+.tw-log li:first-child { color: var(--color-text, #222); }

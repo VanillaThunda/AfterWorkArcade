@@ -8,6 +8,21 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.13.0] – 2026-11-22
+
+### Hinzugefügt
+- **Neues Spiel: Turmwacht** – Koop-Tower-Defense für 1–4 Spieler, auch allein gut spielbar.
+  - Der Host würfelt die Karte per „🎲 Neue Karte“ aus (zufälliger Pfad mit Kurven, Felsen und Bäume) und wählt Schwierigkeit (leicht/mittel/schwer) sowie Länge: 10, 20 oder 30 Wellen oder Endlos.
+  - Fünf Türme mit je 4 Stufen: Pfeilturm, Kanone (Fläche), Frostturm (bremst), Blitzturm (Kettenblitz, ignoriert Panzerung), Fernrohr (große Reichweite).
+  - Gegner: Läufer, Flitzer, Panzer, Schwarm und alle 10 Wellen ein Koloss. Die Gegner werden mit jeder Welle stärker, im Endlos-Modus ab Welle 30 noch schneller.
+  - Koop-Wirtschaft: Gold aus Abschüssen und Wellen wird gleich auf alle verteilt, jeder zahlt aus seiner eigenen Kasse, Mitspielern kann man Gold schenken. Upgraden darf jeder; beim Verkauf bekommt jeder Geldgeber seinen Anteil zurück.
+  - Bauphase mit „Bereit“ (früher Start gibt Bonusgold), Bauen auch während der Welle, Tempo ×2 für den Host.
+  - Wertung nach Schaden der Türme (anteilig nach Investition): „Turmmeister“.
+- README: Feierabend-Fäuste und Turmwacht in der Spieleliste.
+- Test `tests/turmwacht.test.mjs` (`npm run test:turmwacht`). Er läuft auch beim Merge nach main mit.
+
+---
+
 ## [0.12.0] – 2026-11-22
 
 ### Hinzugefügt

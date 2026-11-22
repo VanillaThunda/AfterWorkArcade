@@ -1,13 +1,14 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.11.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.12.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Eroberungs-Würfel**, das
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
 Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
-Echtzeit-Bombenspiel **Bomben-Labyrinth** und das rundenbasierte **Artillerie-Duell**.
+Echtzeit-Bombenspiel **Bomben-Labyrinth**, das rundenbasierte **Artillerie-Duell** und das
+Koop-Prügelspiel **Feierabend-Fäuste**.
 
 ---
 
@@ -20,7 +21,7 @@ Echtzeit-Bombenspiel **Bomben-Labyrinth** und das rundenbasierte **Artillerie-Du
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell)
+8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -193,9 +194,15 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ bombenlabyrinth/
 │  │  ├─ game.js           Server-Teil (Bewegung, Bomben, Explosionen, Power-ups, Schrumpfen, Bots, viewFor)
 │  │  └─ public/           Browser-Teil (Canvas-Arena, client.js, style.css)
-│  └─ artillerie/
-│     ├─ game.js           Server-Teil (Gelände, Flugbahn-Physik, Salven, Waffen, Bots, viewFor)
-│     └─ public/           Browser-Teil (Canvas, Flug-Animation, Bedienleiste, client.js, style.css)
+│  ├─ artillerie/
+│  │  ├─ game.js           Server-Teil (Gelände, Flugbahn-Physik, Salven, Waffen, Bots, viewFor)
+│  │  └─ public/           Browser-Teil (Canvas, Flug-Animation, Bedienleiste, client.js, style.css)
+│  └─ feierabend-faeuste/
+│     ├─ game.js           Server-Teil (Phasen, Kamera/Wellen, Steuerung, K.-o., Boss, Wertung, viewFor)
+│     ├─ level.js          Daten: Figuren, Gegner, Schwierigkeit, Abschnitte und Wellen
+│     ├─ combat.js         Bewegung, Sprung, Angriffe, Treffer, Rückstoß, Panzerung
+│     ├─ ai.js             Gegner-KI (Angriffs-Tickets), Boss, Bot-Mitstreiter
+│     └─ public/           Browser-Teil (client.js, render.js: Kulissen und Figuren, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -412,9 +419,18 @@ Wichtig:
   }
   ```
 
+  Mehrere Aktionen (Beispiel: Feierabend-Fäuste) gehen mit `actionButtons` statt `actionButton`:
+  ```js
+  actionButtons: [
+      { id: "attack", label: "👊", ariaLabel: "Schlag", keys: [" ", "j"], onPress: …, onRelease: … },
+      { id: "jump", label: "⤴", ariaLabel: "Sprung", keys: ["k", "Shift"], onPress: … }
+  ]
+  ```
+  Aktionstasten haben Vorrang vor WASD; Buchstaben gelten unabhängig von Groß-/Kleinschreibung.
+
 ---
 
-## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell
+## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste
 
 ### 8.1 Eroberungs-Würfel
 
@@ -818,6 +834,92 @@ Aktionen (`POST /api/game/action`):
 
 Die Zeiten und Grenzwerte stehen als Konstanten oben in `games/artillerie/game.js`.
 
+### 8.8 Feierabend-Fäuste
+
+Koop-Prügelspiel im Seitenscroller (Beat-'em-up-Genre, eigene Figuren, Welt und Grafik) für
+1–4 Spieler. Freie Plätze lassen sich mit 0–3 Bot-Kollegen auffüllen (höchstens 4 Teilnehmer).
+
+**Vorbereitung:** Jeder wählt eine Figur, jede gibt es nur einmal pro Gruppe. Wer nichts wählt
+(auch Bots), bekommt eine freie. Der Host stellt Bot-Kollegen, Gegner-Schwierigkeit und Bot-Stärke
+ein und startet.
+
+| Figur | Spielweise | LP | Reichweite | Kombo-Schaden |
+|---|---|---|---|---|
+| Kurierin | Flitzer: schnell, flinke Schläge | 90 | 34 | 6 / 6 / 11 |
+| Lagerist | Allrounder | 110 | 38 | 8 / 8 / 14 |
+| Hausmeister | Brecher: langsam, zäh, starker Rückstoß | 140 | 40 | 11 / 11 / 20 |
+| Monteurin | Hebel: Rohrzange mit großer Reichweite | 100 | 58 | 8 / 8 / 13 |
+
+**Ablauf:** Hinterhof → Lagerhalle → Dach (je 2–3 Gegnerwellen) → Chefetage mit dem Boss.
+- Die Kamera folgt dem vordersten Spieler; Nachzügler werden am linken Bildrand mitgeschoben.
+- Kommt eine Welle, bleibt die Kamera stehen, bis alle Gegner besiegt sind; dann erscheint „Weiter →“.
+- Am Ende eines Abschnitts wird zum nächsten übergeblendet.
+- Zerschlagbare Kisten (2 Treffer) enthalten teils Essen, das 30 Lebenspunkte heilt.
+
+**Kampf** (Tick 50 ms):
+- **Laufen** in 8 Richtungen; die Tiefe (z) geht etwas langsamer als seitwärts.
+- **Schlag:** bis zu 3 Schläge hintereinander (Kombo); der dritte wirft um. Ein gedrückter Schlag
+  wird 0,3 s gemerkt, die Kombo geht dann ohne Pause weiter.
+- **Sprung** mit **Sprungtritt** (wirft um). Springen weicht Flaschen und dem Bodenstampfer aus.
+- **Spezial:** Rundumschlag, kostet 10 % der eigenen Lebenspunkte, kurz unverwundbar, wirft alle ringsum um.
+- Treffer zählen nur bei passender Tiefe (±14). Jeder Angriff trifft jedes Ziel nur einmal.
+  Mitspieler kann man nicht treffen.
+- Nach 4 Treffern in Folge geht ein Gegner zu Boden (kein Dauer-Festhalten) und steht kurz unverwundbar auf.
+
+**Gegner:**
+
+| Gegner | Verhalten |
+|---|---|
+| Schläger | kommt heran und schlägt zu |
+| Werfer | hält Abstand (immer im Bild) und wirft Flaschen auf der Bodenebene |
+| Brocken | gepanzert: einfache Schläge unterbrechen ihn nicht, nur Kombo-Ende, Sprungtritt und Spezial |
+| Schichtleiter (Boss) | gepanzert, 3 Phasen nach Lebenspunkten: Ansturm quer über die Bühne (roter Streifen als Warnung), ab Phase 2 Bodenstampfer (roter Kreis), ab Phase 3 schneller und ruft Verstärkung |
+
+- Gegner holen sichtbar aus („!“). Nur wer ein **Angriffs-Ticket** hat, greift an; die anderen kreisen.
+- **Schwierigkeit** (leicht / mittel / schwer): Faktoren auf Lebenspunkte, Schaden, Tempo und
+  Angriffspausen der Gegner, Zahl der gleichzeitigen Angreifer, Wellengröße und die Chance, dass
+  ein Gegner beim Ausholen nicht zu unterbrechen ist.
+- **Gruppengröße:** Wellen, Boss-Lebenspunkte und -Schaden, gleichzeitige Angreifer und Boss-Verstärkung
+  wachsen gestaffelt mit (Tabelle `GROUP_SCALE` in `game.js`, per Simulation abgestimmt).
+
+**Am Boden (K.-o.):** Ein Mitspieler, der 1,5 s daneben steht, hilft auf (40 % LP); sonst steht man
+nach 10 s selbst auf (50 % LP). Liegen **alle** gleichzeitig am Boden, ist die Schicht verloren.
+
+**Bot-Kollegen** setzen nur ihre Eingaben wie ein Mensch: Sie gehen auf den nächsten Gegner,
+schlagen in Kombos zu, nutzen bei Gedränge den Spezialangriff, weichen Boss-Angriffen und Flaschen
+aus, helfen Liegenden auf, holen bei wenig Lebenspunkten Essen und laufen mit der Kamera mit.
+Die Bot-Stärke (leicht / mittel / schwer) bestimmt Reaktion, Genauigkeit und Ausweichen.
+
+**Wertung:** Je Spieler werden Schaden, Treffer, besiegte Gegner, Schaden am Boss und eigene K.-o.s
+gezählt. `result.placements` ist nach Schaden sortiert; der Erste ist „Mitarbeiter des Abends“
+(`result.winnerId`) – bei Sieg **und** Niederlage. `result.outcome` ist `victory`, `defeat` oder
+`aborted` (kein Mensch mehr im Spiel).
+
+**Darstellung:** Alles wird aus Formen auf das Canvas gezeichnet (`public/render.js`): Kulissen je
+Abschnitt mit Parallaxe, Figuren mit Posen (laufen, Schläge, Sprung, getroffen, am Boden …), HUD mit
+Lebenspunkten und Schaden aller Spieler, Boss-Lebensbalken, Schadenszahlen. Figuren und Kamera werden
+zwischen den Server-Ständen geglättet.
+
+**Übertragung:** Voller Zustand alle 50 ms (ca. 3–9 KB). `viewFor` lässt Zufallszustand, Eingaben und
+Gegner-KI weg.
+
+**Später dazukommen / gehen:** Neue Lobby-Mitglieder schauen bis zur nächsten Schicht zu. Wer geht,
+verschwindet aus dem Spiel; ist kein Mensch mehr dabei, endet es.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "allies": 1, "difficulty": "mittel", "allyLevel": "mittel" }` | Host, vor dem Start |
+| Figur wählen | `{ "type": "pick", "figure": "monteurin" }` | jeder, vor dem Start |
+| Start | `{ "type": "start" }` | Host, vor dem Start |
+| Laufen | `{ "type": "move", "dx": 1, "dz": -1 }` (je `-1`/`0`/`1`; `0, 0` = stehen) | eigene Figur, im Spiel |
+| Schlag / Sprung / Spezial | `{ "type": "attack" }`, `{ "type": "jump" }`, `{ "type": "special" }` | eigene Figur, im Spiel |
+| Neue Schicht | `{ "type": "new-match" }` | Host, nach Spielende |
+
+Werte (Figuren, Gegner, Schwierigkeit, Level) stehen in `games/feierabend-faeuste/level.js`,
+Zeiten und die Gruppen-Skalierung oben in `game.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -956,10 +1058,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:lichtrenner` | `tests/lichtrenner.test.mjs` | ~1 s | Lichtrenner-Logik direkt: Startpunkte, Bewegung, Crash (Wand, Spuren, gleiches Feld), Umkehr, Doppelkurve, Runden/Siege, Zeitgrenze, Bots, Verlassen, viewFor |
 | `npm run test:bombenlabyrinth` | `tests/bombenlabyrinth.test.mjs` | ~3 s | Bomben-Labyrinth-Logik direkt: Arena, Taste halten/Tempo, Blockaden, Bomben-Limit, Explosion/Reichweite/Kisten, Kettenreaktion, Ausscheiden, Power-ups, Schrumpfen, Zeitgrenze, Runden/Partie, Bots (Persönlichkeit, Flucht, Sackgasse, Duelle), Verlassen, viewFor |
 | `npm run test:artillerie` | `tests/artillerie.test.mjs` | ~3 s | Artillerie-Logik direkt: Gelände, Krater, Flugbahn (Wind, Kraft, Weltrand), Rumpftreffer, Schaden und Fallschaden, Splitter, Bohrer, Munition, Fahren, Zielphase (bereit/Zeitablauf), gleichzeitige Salve, Runden/Partie, Bots (Bedenkzeit, Treffer, Bohrer, Stärke, Einschießen), Verlassen, viewFor |
+| `npm run test:feierabend-faeuste` | `tests/feierabend-faeuste.test.mjs` | ~5 s | Feierabend-Fäuste-Logik direkt: Figurenwahl, Laufen und Kamera, Wellen, Treffer (Reichweite, Tiefe, einmal je Angriff), Kombo, Sprung, Spezial, kein Friendly Fire, Panzerung, Dauer-Festhalten, Angriffs-Tickets, Werfer, Schwierigkeit, Kisten/Essen, K.-o./Aufhelfen/Niederlage, Abschnittswechsel, Boss-Phasen, Wertung, Bot-Mitstreiter (Level auf „leicht“), Verlassen, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~130 s | alle zehn nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~140 s | alle elf nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

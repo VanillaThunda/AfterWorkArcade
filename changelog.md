@@ -8,6 +8,22 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.12.0] – 2026-11-22
+
+### Hinzugefügt
+- **Neues Spiel: Feierabend-Fäuste** – Koop-Prügelspiel im Seitenscroller (1–4 Spieler, freie Plätze mit Bot-Kollegen).
+  - Vier eigene Figuren mit unterschiedlicher Spielweise: Kurierin (schnell), Lagerist (ausgewogen), Hausmeister (stark), Monteurin (Reichweite). Jede Figur nur einmal pro Gruppe.
+  - Ein Level in drei Abschnitten (Hinterhof, Lagerhalle, Dach) mit Gegnerwellen, danach der Bosskampf gegen den Schichtleiter (3 Phasen: Ansturm, Bodenstampfer, Verstärkung).
+  - Kombos, Sprungtritt, Spezialangriff, Kisten mit Essen; Mitspieler aufhelfen; kein Friendly Fire.
+  - Gegner: Schläger, Werfer, gepanzerter Brocken; Angriffs-Tickets, damit nicht alle gleichzeitig zuschlagen.
+  - Gegner-Schwierigkeit und Bot-Stärke einstellbar; Gegner wachsen gestaffelt mit der Gruppengröße.
+  - Wertung nach ausgeteiltem Schaden: „Mitarbeiter des Abends“ – auch bei verlorener Schicht.
+  - Alles selbst gezeichnet: Kulissen mit Parallaxe, Figuren mit Posen, HUD, Boss-Warnungen.
+- **Steuerungs-Baustein** `controls.js`: mehrere Aktionstasten und Touch-Knöpfe (`actionButtons`), Buchstaben-Tasten ohne Rücksicht auf Groß-/Kleinschreibung. `actionButton` bleibt als Kurzform erhalten.
+- Test `tests/feierabend-faeuste.test.mjs` (`npm run test:feierabend-faeuste`). Er läuft auch beim Merge nach main mit.
+
+---
+
 ## [0.11.0] – 2026-11-21
 
 ### Hinzugefügt

@@ -512,7 +512,7 @@ await test("viewFor ohne rng und Bruchteile, mit Vorschau der nächsten Welle un
     assert.ok(JSON.stringify(view).length < 20000);
 });
 
-await test("Test-Bauer schafft „leicht“ mit 10 Wellen; „schwer“ kostet mehr Leben; < 2 ms pro Tick", () => {
+await test("Test-Bauer schafft „leicht“ mit 10 Wellen; auf „mittel“ kommt der erste Koloss nicht durch; < 2 ms pro Tick", () => {
     let easy = startGame({ difficulty: "leicht", waves: 10, seed: 3 });
     const t0 = performance.now();
     let n = 0;
@@ -524,8 +524,9 @@ await test("Test-Bauer schafft „leicht“ mit 10 Wellen; „schwer“ kostet m
     const perTick = (performance.now() - t0) / n;
     assert.equal(easy.result?.outcome, "victory");
     assert.ok(perTick < 2, `${perTick.toFixed(2)} ms pro Tick`);
-    const hard = play(startGame({ difficulty: "schwer", waves: 10, seed: 3 }), [anna]);
-    assert.ok(hard.lives < easy.lives, `schwer ${hard.lives} vs. leicht ${easy.lives}`);
+    const medium = play(startGame({ difficulty: "mittel", waves: 10, seed: 3 }), [anna]);
+    assert.equal(medium.result?.outcome, "victory");
+    assert.equal(medium.lives, START_LIVES, "Koloss in Welle 10 wird besiegt");
 });
 
 process.exit(summary());

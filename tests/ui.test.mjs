@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 8, "8 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 9, "9 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 8`, "8 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 9`, "9 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -1034,6 +1034,75 @@ await test("Host beendet Feierabend-Fäuste → zurück in der Lobby", async () 
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".ff")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".ff")`, "Spiel weg bei Anna");
+});
+
+section("Turmwacht");
+
+/** Klickt Felder der Karte nacheinander an, bis das Bau-Menü erscheint; liefert das Feld. */
+const selectFreeCell = page => page.eval(`
+    const canvas = document.querySelector(".tw-canvas");
+    const rect = canvas.getBoundingClientRect();
+    for (let y = 0; y < 10; y++) {
+        for (let x = 0; x < 16; x++) {
+            canvas.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: rect.left + (x + 0.5) * rect.width / 16, clientY: rect.top + (y + 0.5) * rect.height / 10 }));
+            if (document.querySelector(".tw-build-btn")) return { x, y };
+        }
+    }
+    return null;`);
+const myGold = page => page.eval(`return parseInt(document.querySelector(".tw-member.is-me .tw-gold").textContent, 10);`);
+
+await test("Setup: Host würfelt die Karte neu, stellt ein und startet", async () => {
+    await startGame(anna, "turmwacht");
+    await anna.waitFor(`document.querySelector('.tw[data-phase="setup"] .tw-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.tw[data-phase="setup"] .tw-panel')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".tw-start") === null;`), true, "Ben hat keinen Start-Button");
+    const before = await ben.eval(`return document.querySelector(".tw-canvas").toDataURL();`);
+    await anna.click(".tw-new-map");
+    await ben.waitFor(`document.querySelector(".tw-canvas").toDataURL() !== ${JSON.stringify(before)}`, "neue Karte bei Ben");
+    await anna.eval(`const s = document.querySelector(".tw-waves"); s.value = "10"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".tw-panel").textContent.includes("10 Wellen")`, "Ben sieht 10 Wellen");
+    await anna.screenshot("30-turmwacht-setup.png");
+    await recordActions(anna);
+    await anna.click(".tw-start");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.tw[data-phase="build"]') && document.querySelector(".tw-overlay").hidden`, "Bauphase");
+    assert.equal(await myGold(anna), 125, "Startgold geteilt");
+});
+await test("Bauen, Upgraden und Schenken", async () => {
+    const cell = await selectFreeCell(anna);
+    assert.ok(cell, "freies Feld gefunden");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".tw-build-btn").length;`), 5, "fünf Turmtypen");
+    await anna.click('.tw-build-btn[data-tower="pfeil"]');
+    await anna.waitFor(`document.querySelector(".tw-upgrade")`, "Turm-Infos nach dem Bau");
+    assert.equal(await myGold(anna), 75);
+    await anna.click(".tw-upgrade");
+    await anna.waitFor(`document.querySelector(".tw-panel h4")?.textContent.includes("Stufe 2")`, "Stufe 2");
+    assert.equal(await myGold(anna), 45);
+    await ben.waitFor(`document.querySelector(".tw-member.is-me .tw-gold")`, "Kasse bei Ben");
+    await anna.click(".tw-gift");
+    await ben.waitFor(`parseInt(document.querySelector(".tw-member.is-me .tw-gold").textContent, 10) === 150`, "Ben bekommt 25 Gold");
+    await anna.waitFor(`document.querySelector(".tw-log").textContent.includes("schenkt")`, "Geschenk im Log");
+    assert.deepEqual(await anna.eval(`return window.__actions.map(a => a.type);`), ["start", "build", "upgrade", "gift"]);
+    await anna.screenshot("31-turmwacht-bauen.png");
+});
+await test("Alle bereit → Welle startet", async () => {
+    await anna.click(".tw-ready");
+    await ben.waitFor(`document.querySelector(".tw-ready").textContent.includes("1/2")`, "Ben sieht 1/2 bereit");
+    await ben.click(".tw-ready");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.tw[data-phase="wave"]')`, "Welle läuft");
+    await sleep(1500);
+    await anna.screenshot("32-turmwacht-welle.png");
+});
+await test("Turmwacht im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".tw-panel") < 60, "Auswahl-Leiste dunkel");
+    await ben.screenshot("33-turmwacht-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Turmwacht → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".tw")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".tw")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

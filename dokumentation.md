@@ -1,14 +1,14 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.12.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.13.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
 und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Eroberungs-Würfel**, das
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
 Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
-Echtzeit-Bombenspiel **Bomben-Labyrinth**, das rundenbasierte **Artillerie-Duell** und das
-Koop-Prügelspiel **Feierabend-Fäuste**.
+Echtzeit-Bombenspiel **Bomben-Labyrinth**, das rundenbasierte **Artillerie-Duell**, das
+Koop-Prügelspiel **Feierabend-Fäuste** und das Koop-Tower-Defense **Turmwacht**.
 
 ---
 
@@ -21,7 +21,7 @@ Koop-Prügelspiel **Feierabend-Fäuste**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste)
+8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste-turmwacht)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -197,12 +197,18 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  ├─ artillerie/
 │  │  ├─ game.js           Server-Teil (Gelände, Flugbahn-Physik, Salven, Waffen, Bots, viewFor)
 │  │  └─ public/           Browser-Teil (Canvas, Flug-Animation, Bedienleiste, client.js, style.css)
-│  └─ feierabend-faeuste/
-│     ├─ game.js           Server-Teil (Phasen, Kamera/Wellen, Steuerung, K.-o., Boss, Wertung, viewFor)
-│     ├─ level.js          Daten: Figuren, Gegner, Schwierigkeit, Abschnitte und Wellen
-│     ├─ combat.js         Bewegung, Sprung, Angriffe, Treffer, Rückstoß, Panzerung
-│     ├─ ai.js             Gegner-KI (Angriffs-Tickets), Boss, Bot-Mitstreiter
-│     └─ public/           Browser-Teil (client.js, render.js: Kulissen und Figuren, style.css)
+│  ├─ feierabend-faeuste/
+│  │  ├─ game.js           Server-Teil (Phasen, Kamera/Wellen, Steuerung, K.-o., Boss, Wertung, viewFor)
+│  │  ├─ level.js          Daten: Figuren, Gegner, Schwierigkeit, Abschnitte und Wellen
+│  │  ├─ combat.js         Bewegung, Sprung, Angriffe, Treffer, Rückstoß, Panzerung
+│  │  ├─ ai.js             Gegner-KI (Angriffs-Tickets), Boss, Bot-Mitstreiter
+│  │  └─ public/           Browser-Teil (client.js, render.js: Kulissen und Figuren, style.css)
+│  └─ turmwacht/
+│     ├─ game.js           Server-Teil (Phasen, Aktionen, Koop-Wirtschaft, Wertung, viewFor)
+│     ├─ map.js            Karten-Generator (Pfad, Deko), Position auf dem Pfad
+│     ├─ data.js           Daten: Türme und Stufen, Gegner, Schwierigkeit, Wellen-Formel
+│     ├─ sim.js            Gegner-Bewegung, Zielwahl, Schüsse, Panzerung, Effekte
+│     └─ public/           Browser-Teil (client.js, render.js: Karte, Türme, Gegner, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -430,7 +436,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste
+## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht
 
 ### 8.1 Eroberungs-Würfel
 
@@ -920,6 +926,118 @@ Aktionen (`POST /api/game/action`):
 Werte (Figuren, Gegner, Schwierigkeit, Level) stehen in `games/feierabend-faeuste/level.js`,
 Zeiten und die Gruppen-Skalierung oben in `game.js`.
 
+### 8.9 Turmwacht
+
+Koop-Tower-Defense (eigene Türme, Gegner und Grafik) für 1–4 Spieler, ohne Bots. Weitere
+Lobby-Mitglieder schauen zu.
+
+**Vorbereitung:** Der Host würfelt mit „🎲 Neue Karte“ eine Karte aus (Vorschau für alle sofort
+sichtbar), wählt die Schwierigkeit (leicht / mittel / schwer) und die Länge (10 / 20 / 30 Wellen
+oder Endlos) und startet.
+
+**Karte** (`map.js`): Raster 16 × 10. Der Pfad läuft vom linken zum rechten Rand, nur nach rechts,
+oben oder unten, mit 3–8 Kurven und mindestens 28 Feldern. Pfadfelder berühren sich nur, wenn sie
+direkt aufeinander folgen; waagerechte Stücke sind mindestens 2 Felder lang, damit zwischen den
+Kehren Platz für Türme bleibt. Dazu 6–10 Felsen und Bäume, die nicht bebaubar sind. Gleicher Seed
+ergibt die gleiche Karte. Gegner haben eine Distanz `d` entlang des Pfads; ihre Position wird aus den
+Wegpunkten berechnet.
+
+**Ablauf:** Bauphase (vor der ersten Welle 30 s, danach 25 s) → Welle → Bauphase …
+- Die Bauphase endet früher, wenn alle „Bereit“ drücken oder der Host „Welle rufen“ wählt. Die
+  Gruppe bekommt dann 2 Gold je übriger Sekunde.
+- **Bauen, Upgraden und Verkaufen geht jederzeit**, auch während einer Welle.
+- Der Host kann auf **Tempo ×2** schalten.
+- Jeder Gegner am Tor kostet gemeinsame Leben (Start: 20, Koloss: 5).
+- Sieg, wenn die letzte Welle abgewehrt ist; Niederlage bei 0 Leben. Im Endlos-Modus zählt die
+  erreichte Welle.
+
+**Türme** (je 4 Stufen; ein Upgrade kostet 60 / 90 / 130 % des Grundpreises):
+
+| Turm | Preis | Wirkung | Stufe 1 → 4 |
+|---|---|---|---|
+| Pfeilturm | 50 | schnell, ein Ziel | Schaden 9 → 36, Stufe 4 schießt zwei Pfeile |
+| Kanone | 90 | Flächenschaden rund um das Ziel | Schaden 16 → 66, Radius 0,9 → 1,35 |
+| Frostturm | 70 | Kältewelle trifft alle in Reichweite, bremst 2 s | bremst 30 → 55 % |
+| Blitzturm | 120 | Kettenblitz, ignoriert Panzerung, −15 % je Sprung | 3 → 6 Ziele, Schaden 16 → 52 |
+| Fernrohr | 140 | riesige Reichweite, hoher Einzelschaden | Schaden 60 → 250, Reichweite 4,5 → 6,5 |
+
+Alle Türme zielen auf den vordersten Gegner in Reichweite. Schüsse treffen sofort; die Anzeige
+(Pfeil, Explosion, Kältering, Blitz) kommt als kurze Effekte (`fx`).
+
+**Gegner** (Lebenspunkte als Faktor auf den Grundwert der Welle):
+
+| Gegner | LP | Tempo (Felder/s) | Besonderheit |
+|---|---|---|---|
+| Läufer | 1× | 1,15 | Standard |
+| Flitzer | 0,5× | 2,0 | schnell |
+| Panzer | 2,6× | 0,7 | Panzerung 3, alle 5 Wellen +2 |
+| Schwarm | 0,3× | 1,35 | in großen Gruppen |
+| Koloss (Boss) | 11× | 0,55 | jede 10. Welle; Panzerung 4, alle 10 Wellen +2; Frost wirkt nur halb; kostet 5 Leben |
+
+Panzerung zieht festen Schaden je Treffer ab; mindestens 25 % kommen immer durch.
+
+**Wellen** (`data.js`, feste Formel, auch endlos):
+- Grund-Lebenspunkte: 30 × 1,16^(Welle − 1), ab Welle 30 zusätzlich × 1,06 je Welle.
+- 8 Gegner, alle 2 Wellen einer mehr (höchstens 24).
+- Wellen 1–3 bestehen nur aus Läufern, danach wechseln sich Schwarm-, Panzer-, Flitzer- und
+  gemischte Wellen ab.
+
+Die Schwierigkeit wirkt auf:
+
+| | leicht | mittel | schwer |
+|---|---|---|---|
+| Lebenspunkte | 0,75 | 1 | 1,4 |
+| Tempo | 0,92 | 1 | 1,08 |
+| alles Gold | 1,15 | 1 | 0,85 |
+
+Die Werte sind per Simulation mit einem gierigen Test-Bauer abgestimmt.
+
+**Wirtschaft (Koop):**
+- Startgold (250), Kopfgeld und Wellenbonus (25 + 4 × Welle) werden **gleichmäßig auf alle aktiven
+  Spieler verteilt**. Bruchteile sammelt jeder intern, es geht nichts verloren. Das Einkommen der
+  Gruppe hängt also nicht von der Spielerzahl ab.
+- Jeder zahlt aus seiner **eigenen Kasse**. Türme gehören dem Erbauer (Rand in seiner Farbe).
+- **Upgraden darf jeder**; was jemand in einen Turm steckt, wird je Turm mitgezählt.
+- **Verkaufen darf nur der Erbauer** (herrenlose Türme jeder). Jeder Geldgeber bekommt seinen Anteil
+  zurück: 70 %; was in derselben Bauphase investiert wurde, zu 100 %.
+- **Schenken:** 🎁 25 oder 🎁 ½ (die Hälfte der eigenen Kasse) an einen Mitspieler; steht im Log.
+- **Verlassen:** Das Gold geht an die übrigen Spieler, die Türme werden herrenlos und bleiben stehen.
+  Ist niemand mehr da, endet das Spiel (`aborted`).
+
+**Wertung:**
+- Der Schaden eines Turms wird anteilig nach Investition gutgeschrieben, ein Abschuss dem Erbauer.
+- Je Spieler zählen Schaden, Abschüsse, gebaute Türme, investiertes und verschenktes Gold.
+- `result.placements` ist nach Schaden sortiert; der Erste ist „🏆 Turmmeister“ (`result.winnerId`).
+- `result.outcome` ist `victory`, `defeat`, `endless` (Endlos-Modus) oder `aborted`; dazu kommt
+  `result.wave`.
+
+**Bedienung:**
+- Feld antippen → Bau-Menü mit Preisen und Reichweiten-Vorschau.
+- Turm antippen → Infos mit Upgrade und Verkaufen.
+- Tastatur: 1–5 baut auf dem gewählten Feld, U = Upgrade, Esc hebt die Auswahl auf.
+- Die Leiste zeigt Leben, Welle, Countdown, die nächste Welle und die Kasse aller Spieler.
+
+**Übertragung:** Tick 100 ms; der volle Zustand geht bei jedem Tick raus (ca. 5–15 KB). `viewFor`
+lässt Zufall, Bruchteile und Investitions-Details weg und ergänzt die Erstattung je Turm und die
+Vorschau der nächsten Welle (`upcoming`).
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "difficulty": "mittel", "waves": 20 }` (`0` = endlos) | Host, vor dem Start |
+| Neue Karte | `{ "type": "new-map" }` | Host, vor dem Start |
+| Start | `{ "type": "start" }` | Host, vor dem Start |
+| Bauen | `{ "type": "build", "x": 4, "y": 2, "tower": "kanone" }` | Spieler, im Spiel |
+| Upgrade / Verkaufen | `{ "type": "upgrade", "towerId": "t7" }`, `{ "type": "sell", "towerId": "t7" }` | Spieler (Verkaufen: Erbauer), im Spiel |
+| Schenken | `{ "type": "gift", "to": "<userId>", "amount": 25 }` | Spieler, im Spiel |
+| Bereit | `{ "type": "ready" }` (umschalten) | Spieler, Bauphase |
+| Welle rufen | `{ "type": "call-wave" }` | Host, Bauphase |
+| Tempo | `{ "type": "speed" }` (×1 ↔ ×2) | Host, im Spiel |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Spielende |
+
+Die Werte stehen in `games/turmwacht/data.js`, die Zeiten oben in `game.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -1059,10 +1177,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:bombenlabyrinth` | `tests/bombenlabyrinth.test.mjs` | ~3 s | Bomben-Labyrinth-Logik direkt: Arena, Taste halten/Tempo, Blockaden, Bomben-Limit, Explosion/Reichweite/Kisten, Kettenreaktion, Ausscheiden, Power-ups, Schrumpfen, Zeitgrenze, Runden/Partie, Bots (Persönlichkeit, Flucht, Sackgasse, Duelle), Verlassen, viewFor |
 | `npm run test:artillerie` | `tests/artillerie.test.mjs` | ~3 s | Artillerie-Logik direkt: Gelände, Krater, Flugbahn (Wind, Kraft, Weltrand), Rumpftreffer, Schaden und Fallschaden, Splitter, Bohrer, Munition, Fahren, Zielphase (bereit/Zeitablauf), gleichzeitige Salve, Runden/Partie, Bots (Bedenkzeit, Treffer, Bohrer, Stärke, Einschießen), Verlassen, viewFor |
 | `npm run test:feierabend-faeuste` | `tests/feierabend-faeuste.test.mjs` | ~5 s | Feierabend-Fäuste-Logik direkt: Figurenwahl, Laufen und Kamera, Wellen, Treffer (Reichweite, Tiefe, einmal je Angriff), Kombo, Sprung, Spezial, kein Friendly Fire, Panzerung, Dauer-Festhalten, Angriffs-Tickets, Werfer, Schwierigkeit, Kisten/Essen, K.-o./Aufhelfen/Niederlage, Abschnittswechsel, Boss-Phasen, Wertung, Bot-Mitstreiter (Level auf „leicht“), Verlassen, viewFor |
+| `npm run test:turmwacht` | `tests/turmwacht.test.mjs` | ~2 s | Turmwacht-Logik direkt: Karten-Generator (200 Seeds), neue Karte, Einstellungen, Start/Startgold, Zuschauer ab Spieler 5, Bauen/Upgraden/Verkaufen mit Erstattung, gleich verteiltes Einkommen ohne Rundungsverlust, Schenken, Verlassen, Zielwahl, Kanone/Frost/Blitz/Panzerung, Schaden nach Investition, Bereit/Welle rufen, Leben/Niederlage/Sieg/Endlos, Tempo ×2, Wellen-Formel, Wertung, viewFor, Test-Bauer (leicht/10 Sieg, erster Koloss auf mittel besiegt, Rechenzeit) |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Turmwacht (neue Karte, Bauen, Upgraden, Schenken, Bereit), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~140 s | alle elf nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~150 s | alle zwölf nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

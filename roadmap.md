@@ -93,7 +93,8 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 3. ~~**Bomben-Labyrinth**~~ – umgesetzt in 0.9.0.
 4. ~~**Artillerie-Duell**~~ – umgesetzt in 0.10.0. Als Nächstes evtl. das **Burgen-Duell** als Modus davon.
 5. ~~**Koop-Prügelspiel „Feierabend-Fäuste“**~~ – umgesetzt in 0.12.0.
-6. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
+6. ~~**Koop-Tower-Defense „Turmwacht“**~~ – umgesetzt in 0.13.0.
+7. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
 
 **Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
 `public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth und Artillerie-Duell. Seit 0.12.0 auch mit mehreren Aktionstasten (`actionButtons`), genutzt von Feierabend-Fäuste.

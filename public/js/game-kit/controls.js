@@ -22,6 +22,14 @@
  *       onPress: () => ctx.sendAction({ type: "bomb" })
  *   }
  *
+ * Mehrere Aktionen (z. B. Schlag, Sprung, Spezial) statt actionButton:
+ *
+ *   actionButtons: [
+ *       { id: "attack", label: "👊", keys: [" ", "j"], onPress: …, onRelease: … },
+ *       { id: "jump", label: "⤴", keys: ["k", "Shift"], onPress: … }
+ *   ]
+ *   Die Aktionstasten haben Vorrang vor WASD; Buchstaben ohne Rücksicht auf Groß-/Kleinschreibung.
+ *
  * Tastatur: Pfeiltasten und WASD. Ignoriert werden Eingaben in Textfeldern
  * (z. B. Chat), bei offenem Dialog, mit Strg/Alt/Meta und gedrückt gehaltene
  * Tasten (Wiederholung). Behandelte Tasten verhindern das Scrollen der Seite.
@@ -63,6 +71,7 @@ const STYLES = `
 .gk-dpad [data-dir="left"] { grid-area: 2 / 1; }
 .gk-dpad [data-dir="right"] { grid-area: 2 / 3; }
 .gk-dpad [data-dir="down"] { grid-area: 3 / 2; }
+.gk-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 180px; }
 .gk-pad .gk-action {
     width: 76px;
     height: 76px;
@@ -80,6 +89,11 @@ function ensureStyles() {
     document.head.append(style);
 }
 
+/** Buchstaben unabhängig von Groß-/Kleinschreibung vergleichen („j“ = „J“). */
+function normalizeKey(key) {
+    return key.length === 1 ? key.toLowerCase() : key;
+}
+
 /** Liegt der Fokus in einem Eingabeelement (dann gehören die Tasten dorthin)? */
 function isTyping(target) {
     if (!(target instanceof Element)) return false;
@@ -91,14 +105,20 @@ function isTyping(target) {
  * @param {(dir: "up"|"down"|"left"|"right") => void} options.onDirection
  * @param {(dir: "up"|"down"|"left"|"right") => void} [options.onRelease]  Richtung losgelassen
  * @param {{label: string, ariaLabel?: string, keys?: string[], onPress: () => void}} [options.actionButton]
+ *        eine Aktionstaste (Kurzform für actionButtons mit einem Eintrag)
+ * @param {Array<{id?: string, label: string, ariaLabel?: string, keys?: string[], onPress: () => void, onRelease?: () => void}>} [options.actionButtons]
+ *        mehrere Aktionstasten; Buchstaben-Tasten gelten unabhängig von Groß-/Kleinschreibung
  * @param {() => boolean} [options.isActive]   nur reagieren, wenn true
  * @param {HTMLElement} [options.swipeTarget]  Element für Wischgesten
  * @returns {{ element: HTMLElement, destroy: () => void }}
  */
-export function createDirectionalControls({ onDirection, onRelease = null, actionButton = null, isActive = () => true, swipeTarget = null }) {
+export function createDirectionalControls({ onDirection, onRelease = null, actionButton = null, actionButtons = null, isActive = () => true, swipeTarget = null }) {
     ensureStyles();
 
-    const actionKeys = actionButton ? (actionButton.keys ?? [" ", "Enter"]) : [];
+    const actions = (actionButtons ?? (actionButton ? [actionButton] : []))
+        .map(action => ({ ...action, keys: (action.keys ?? [" ", "Enter"]).map(normalizeKey) }));
+    const actionFor = key => actions.find(action => action.keys.includes(normalizeKey(key))) ?? null;
+    const heldActions = new Set(); // gedrückte Aktionstasten (für onRelease)
     const held = new Set();   // aktuell gedrückte Richtungen (Tastatur + Steuerkreuz)
 
     function emit(dir) {
@@ -110,30 +130,42 @@ export function createDirectionalControls({ onDirection, onRelease = null, actio
         if (onRelease) onRelease(dir);
     }
 
+    function releaseAction(action) {
+        if (!heldActions.delete(action)) return;
+        if (action.onRelease) action.onRelease();
+    }
+
     function releaseAll() {
         for (const dir of [...held]) release(dir);
+        for (const action of [...heldActions]) releaseAction(action);
     }
 
     // --- Tastatur -------------------------------------------------------------
     function onKeyDown(event) {
         if (event.ctrlKey || event.altKey || event.metaKey) return;
-        const dir = KEY_DIRECTIONS[event.key];
-        const isAction = actionKeys.includes(event.key);
-        if (!dir && !isAction) return;
+        const action = actionFor(event.key);
+        const dir = action ? null : KEY_DIRECTIONS[event.key];
+        if (!dir && !action) return;
         if (isTyping(event.target) || document.querySelector("dialog[open]")) return;
         if (!isActive()) return;
         // Pfeiltasten und Leertaste scrollen sonst die Seite; die Aktionstaste soll
         // außerdem keinen gerade fokussierten Knopf (z. B. „Lobby verlassen“) auslösen.
         event.preventDefault();
         if (event.repeat) return;
-        if (isAction) {
-            actionButton.onPress();
+        if (action) {
+            heldActions.add(action);
+            action.onPress();
             return;
         }
         held.add(dir);
         onDirection(dir);
     }
     function onKeyUp(event) {
+        const action = actionFor(event.key);
+        if (action) {
+            releaseAction(action);
+            return;
+        }
         const dir = KEY_DIRECTIONS[event.key];
         if (dir) release(dir);
     }
@@ -167,17 +199,28 @@ export function createDirectionalControls({ onDirection, onRelease = null, actio
     }
     element.append(dpad);
 
-    if (actionButton) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "gk-action";
-        button.textContent = actionButton.label;
-        button.setAttribute("aria-label", actionButton.ariaLabel ?? actionButton.label);
-        button.addEventListener("pointerdown", event => {
-            event.preventDefault();
-            if (isActive()) actionButton.onPress();
-        });
-        element.append(button);
+    if (actions.length > 0) {
+        const group = document.createElement("div");
+        group.className = "gk-actions";
+        for (const action of actions) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "gk-action";
+            if (action.id) button.dataset.action = action.id;
+            button.textContent = action.label;
+            button.setAttribute("aria-label", action.ariaLabel ?? action.label);
+            button.addEventListener("pointerdown", event => {
+                event.preventDefault();
+                if (!isActive()) return;
+                heldActions.add(action);
+                action.onPress();
+            });
+            for (const type of ["pointerup", "pointercancel", "pointerleave"]) {
+                button.addEventListener(type, () => releaseAction(action));
+            }
+            group.append(button);
+        }
+        element.append(group);
     }
 
     // --- Wischen ------------------------------------------------------------------

@@ -89,7 +89,7 @@ const ENEMIES = Object.freeze({
     flitzer: { name: "Flitzer", hp: 0.5, speed: 2.0, armor: 0, bounty: 2, lives: 1, gap: 6, size: 0.22, color: "#fdd835" },
     panzer: { name: "Panzer", hp: 2.6, speed: 0.7, armor: 1, bounty: 6, lives: 1, gap: 13, size: 0.32, color: "#6d4c41" },
     schwarm: { name: "Schwarm", hp: 0.3, speed: 1.35, armor: 0, bounty: 1, lives: 1, gap: 3, size: 0.17, color: "#7cb342" },
-    koloss: { name: "Koloss", hp: 26, speed: 0.55, armor: 2, bounty: 60, lives: 5, gap: 20, size: 0.45, color: "#5e35b1", boss: true }
+    koloss: { name: "Koloss", hp: 11, speed: 0.55, armor: 2, bounty: 60, lives: 5, gap: 20, size: 0.45, color: "#5e35b1", boss: true }
 });
 
 const DIFFICULTIES = Object.freeze({
@@ -117,7 +117,7 @@ function waveHp(wave, difficulty) {
 function armorFor(type, wave) {
     const base = ENEMIES[type].armor;
     if (!base) return 0;
-    return type === "koloss" ? 5 + 3 * Math.floor(wave / 10) : 3 + 2 * Math.floor(wave / 5);
+    return type === "koloss" ? 4 + 2 * Math.floor(wave / 10) : 3 + 2 * Math.floor(wave / 5);
 }
 
 /** Kopfgeld wächst langsamer als die Lebenspunkte. */

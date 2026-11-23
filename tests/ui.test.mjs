@@ -1168,7 +1168,7 @@ await test("Host beendet Fünf-Würfel-Poker → zurück in der Lobby", async ()
 await test("Nacheinander: Name und Würfel des Aktiven auf dem Tisch, danach ist Ben dran", async () => {
     await startGame(anna, "wuerfelpoker");
     await anna.waitFor(`document.querySelector('.wp[data-phase="setup"] .wp-mode')`, "Modus-Auswahl");
-    assert.ok(await anna.eval(`return document.querySelector(".wp-legend").textContent.includes("im selben Wurf");`), "Legende erklärt Straßen");
+    assert.ok(await anna.eval(`return document.querySelector(".wp-legend").textContent.includes("über mehrere Würfe");`), "Legende erklärt Straßen");
     await anna.eval(`const s = document.querySelector(".wp-mode"); s.value = "nacheinander"; s.dispatchEvent(new Event("change"));`);
     await ben.waitFor(`document.querySelector(".wp-card")?.textContent.includes("reihum")`, "Ben sieht den Modus");
     await anna.eval(`const s = document.querySelector(".wp-bots"); s.value = "0"; s.dispatchEvent(new Event("change"));`);

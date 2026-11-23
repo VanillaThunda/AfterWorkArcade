@@ -44,8 +44,7 @@ const LEGEND = [
     ["Viererpasch", "Mindestens vier gleiche Würfel – zählt die Summe aller fünf."],
     ["Full House", "Drei gleiche und zwei gleiche einer anderen Zahl (z. B. 3-3-3-5-5) – 25 Punkte."],
     ["Kleine Straße", "Vier aufeinanderfolgende Zahlen (1-2-3-4, 2-3-4-5 oder 3-4-5-6) – 30 Punkte."],
-    ["Große Straße", "Fünf aufeinanderfolgende Zahlen (1-2-3-4-5 oder 2-3-4-5-6) – 40 Punkte."],
-    ["Straßen", "zählen nur, wenn alle fünf Würfel im selben Wurf gefallen sind – also beim letzten Wurf kein Würfel gehalten wurde."],
+    ["Große Straße", "Fünf aufeinanderfolgende Zahlen (1-2-3-4-5 oder 2-3-4-5-6) – 40 Punkte. Gehaltene Würfel zählen mit, die Folge darf über mehrere Würfe entstehen."],
     ["Fünferpasch", "Fünf gleiche Würfel – 50 Punkte. Jeder weitere Fünferpasch bringt +50 extra (eingetragen wird trotzdem in ein freies Feld)."],
     ["Chance", "Passt immer – zählt die Summe aller Würfel."],
     ["Streichen", "Passt nichts, trägst du in ein freies Feld eine 0 ein."]

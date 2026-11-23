@@ -12,9 +12,8 @@
  *
  * Phasen:  setup → playing → finished
  *
- * Zug eines Teilnehmers: turn = { dice[5], held[5], rolls, fresh }. „roll“ würfelt
- * die nicht gehaltenen Würfel neu (beim ersten Wurf alle); fresh = im letzten Wurf
- * war nichts gehalten – nur dann zählen Straßen. „score“ trägt ein Feld
+ * Zug eines Teilnehmers: turn = { dice[5], held[5], rolls }. „roll“ würfelt die
+ * nicht gehaltenen Würfel neu (beim ersten Wurf alle), „score“ trägt ein Feld
  * ein und beginnt den nächsten Zug. Pro Feld hat ein Mensch TURN_MS Zeit, danach
  * spielt die Bot-Logik („mittel“) den Zug für ihn zu Ende.
  *
@@ -60,7 +59,7 @@ function addLog(state, text) {
     if (state.log.length > LOG_SIZE) state.log.splice(0, state.log.length - LOG_SIZE);
 }
 
-const emptyTurn = () => ({ dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false });
+const emptyTurn = () => ({ dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 });
 const isDone = p => scoring.filledCount(p.sheet) === CATEGORIES.length;
 const activePlayers = state => state.players.filter(p => !p.left);
 const sequential = state => state.mode === "nacheinander";
@@ -154,7 +153,6 @@ function doRoll(state, p, held, now) {
     if (!first && held.every(Boolean)) throw new Error("Alle Würfel sind gehalten – trag ein Feld ein.");
     p.turn.dice = p.turn.dice.map((value, i) => (!first && held[i] ? value : randomDie()));
     p.turn.held = first ? [false, false, false, false, false] : held;
-    p.turn.fresh = first || held.every(h => !h);
     p.turn.rolls += 1;
     p.rollNo += 1;
     if (p.bot) p.nextBotAt = now + botDelay(state);
@@ -171,7 +169,7 @@ function doScore(state, p, category, now) {
     } else if (category === "fiver" && scoring.isFiver(dice)) {
         addLog(state, `${p.name} hat einen Fünferpasch!`);
     }
-    p.sheet[category] = scoring.scoreFor(category, dice, p.turn.fresh);
+    p.sheet[category] = scoring.scoreFor(category, dice);
     if (sequential(state)) {
         stopClock(p);
         addLog(state, `${p.name}: ${LABELS[category]} – ${p.sheet[category]} Punkte.`);
@@ -285,7 +283,7 @@ function viewFor(state) {
         players: state.players.map(({ nextBotAt, turnEndsAt, ...p }) => ({
             ...p,
             totals: scoring.totals(p.sheet, p.extra),
-            potentials: p.turn.rolls > 0 ? scoring.potentials(p.sheet, p.turn.dice, p.turn.fresh) : null,
+            potentials: p.turn.rolls > 0 ? scoring.potentials(p.sheet, p.turn.dice) : null,
             done: isDone(p),
             turnRemainingMs: turnEndsAt ? Math.max(0, turnEndsAt - now) : null
         }))

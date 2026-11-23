@@ -1,7 +1,7 @@
 /**
  * Logik-Test für Fünf-Würfel-Poker – lädt games/wuerfelpoker/game.js direkt
  * (ohne Server) und prüft Punkte aller Felder, Bonus, Würfel-Regeln, gleichzeitiges
- * und reihum Spielen, Straßen nur aus einem Wurf, Zeitlimit, Bots, Wertung und Verlassen.
+ * und reihum Spielen, Zeitlimit, Bots, Wertung und Verlassen.
  *
  * Start:  npm run test:wuerfelpoker   bzw.  node tests/wuerfelpoker.test.mjs
  * Dauer:  ca. 3 Sekunden
@@ -69,10 +69,16 @@ await test("alle Felder mit Grenzfällen", () => {
         ["chance", [1, 2, 3, 4, 6], 16]
     ];
     for (const [category, dice, expected] of cases) assert.equal(scoreFor(category, dice), expected, `${category} ${dice}`);
-    // Straßen nur aus einem Wurf (fresh = false: beim letzten Wurf war etwas gehalten)
-    assert.equal(scoreFor("smallStraight", [1, 2, 3, 4, 4], false), 0);
-    assert.equal(scoreFor("largeStraight", [2, 3, 4, 5, 6], false), 0);
-    assert.equal(scoreFor("chance", [2, 3, 4, 5, 6], false), 20);
+});
+
+await test("Straße darf über mehrere Würfe entstehen (gehaltene Würfel zählen mit)", () => {
+    let state = startGame();
+    script(2, 3, 4, 1, 1, 5, 6);
+    state = act(state, anna, { type: "roll" });
+    state = act(state, anna, { type: "roll", held: [true, true, true, false, false] });
+    assert.deepEqual(find(state, anna).turn.dice, [2, 3, 4, 5, 6]);
+    state = act(state, anna, { type: "score", category: "largeStraight" });
+    assert.equal(find(state, anna).sheet.largeStraight, 40);
 });
 
 await test("oberer Bonus ab 63, Gesamtsumme mit Extra-Fünferpasch", () => {
@@ -124,7 +130,7 @@ await test("Eintragen: Punkte, neuer Zug, belegtes Feld wird abgelehnt, Streiche
     state = act(state, anna, { type: "score", category: "fiver" }, T0 + 5000);
     const me = find(state, anna);
     assert.equal(me.sheet.fiver, 50);
-    assert.deepEqual(me.turn, { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false });
+    assert.deepEqual(me.turn, { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 });
     assert.equal(me.turnEndsAt, T0 + 5000 + TURN_MS, "neues Zeitlimit je Feld");
     script(1, 2, 3, 4, 6);
     state = act(state, anna, { type: "roll" });
@@ -132,26 +138,6 @@ await test("Eintragen: Punkte, neuer Zug, belegtes Feld wird abgelehnt, Streiche
     assert.throws(() => act(state, anna, { type: "score", category: "joker" }), /Unbekanntes Feld/);
     state = act(state, anna, { type: "score", category: "fullHouse" });
     assert.equal(find(state, anna).sheet.fullHouse, 0);
-});
-
-await test("Straße zählt nur, wenn alle fünf Würfel im selben Wurf fielen", () => {
-    let state = startGame();
-    script(2, 3, 4, 1, 1);
-    state = act(state, anna, { type: "roll" });
-    assert.equal(find(state, anna).turn.fresh, true);
-    script(5, 6);
-    state = act(state, anna, { type: "roll", held: [true, true, true, false, false] });
-    assert.deepEqual(find(state, anna).turn.dice, [2, 3, 4, 5, 6]);
-    assert.equal(find(state, anna).turn.fresh, false);
-    assert.equal(game.viewFor(state, anna.id).players[0].potentials.largeStraight, 0);
-    state = act(state, anna, { type: "score", category: "largeStraight" });
-    assert.equal(find(state, anna).sheet.largeStraight, 0, "mit gehaltenen Würfeln keine Straße");
-    script(6, 6, 6, 6, 6, 1, 2, 3, 4, 5);
-    state = act(state, anna, { type: "roll" });
-    state = act(state, anna, { type: "roll", held: [false, false, false, false, false] });
-    assert.equal(find(state, anna).turn.fresh, true, "alle neu gewürfelt zählt wieder");
-    state = act(state, anna, { type: "score", category: "smallStraight" });
-    assert.equal(find(state, anna).sheet.smallStraight, 30);
 });
 
 await test("Extra-Fünferpasch: +50, wenn das Feld schon 50 hat – nicht nach einer gestrichenen 0", () => {
@@ -283,17 +269,16 @@ await test("„schwer“ schlägt „leicht“ im Schnitt; Entscheidungen schnel
         const sheet = emptySheet();
         let maxMs = 0;
         for (let r = 0; r < 13; r++) {
-            const turn = { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false };
+            const turn = { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 };
             for (;;) {
                 const t0 = performance.now();
                 const d = bots.decide(sheet, turn, level);
                 maxMs = Math.max(maxMs, performance.now() - t0);
                 if (d.type === "score") {
-                    sheet[d.category] = scoreFor(d.category, turn.dice, turn.fresh);
+                    sheet[d.category] = scoreFor(d.category, turn.dice);
                     break;
                 }
                 turn.dice = turn.dice.map((v, i) => (d.held[i] && turn.rolls > 0 ? v : die()));
-                turn.fresh = turn.rolls === 0 || d.held.every(h => !h);
                 turn.rolls += 1;
             }
         }
@@ -319,9 +304,7 @@ await test("„schwer“ schlägt „leicht“ im Schnitt; Entscheidungen schnel
 await test("Bot nimmt eine fertige Große Straße und hält ein Viererpasch zusammen", () => {
     const sheet = emptySheet();
     for (const level of ["mittel", "schwer"]) {
-        assert.deepEqual(bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 1, fresh: true }, level), { type: "score", category: "largeStraight" });
-        const notFresh = bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 3, fresh: false }, level);
-        assert.notEqual(notFresh.category, "largeStraight", "gehaltene Straße zählt nicht");
+        assert.deepEqual(bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 1 }, level), { type: "score", category: "largeStraight" });
         const d = bots.decide(sheet, { dice: [6, 6, 2, 6, 6], held: [], rolls: 1 }, level);
         assert.equal(d.type, "roll");
         assert.deepEqual(d.held, [true, true, false, true, true], level);

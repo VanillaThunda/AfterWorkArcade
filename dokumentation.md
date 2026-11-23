@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.13.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.14.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -8,7 +8,8 @@ und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Eroberungs-Wür
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
 Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
 Echtzeit-Bombenspiel **Bomben-Labyrinth**, das rundenbasierte **Artillerie-Duell**, das
-Koop-Prügelspiel **Feierabend-Fäuste** und das Koop-Tower-Defense **Turmwacht**.
+Koop-Prügelspiel **Feierabend-Fäuste**, das Koop-Tower-Defense **Turmwacht** und das
+Würfelspiel **Fünf-Würfel-Poker**.
 
 ---
 
@@ -21,7 +22,7 @@ Koop-Prügelspiel **Feierabend-Fäuste** und das Koop-Tower-Defense **Turmwacht*
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste-turmwacht)
+8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste-turmwacht-fünf-würfel-poker)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -203,12 +204,17 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  │  ├─ combat.js         Bewegung, Sprung, Angriffe, Treffer, Rückstoß, Panzerung
 │  │  ├─ ai.js             Gegner-KI (Angriffs-Tickets), Boss, Bot-Mitstreiter
 │  │  └─ public/           Browser-Teil (client.js, render.js: Kulissen und Figuren, style.css)
-│  └─ turmwacht/
-│     ├─ game.js           Server-Teil (Phasen, Aktionen, Koop-Wirtschaft, Wertung, viewFor)
-│     ├─ map.js            Karten-Generator (Pfad, Deko), Position auf dem Pfad
-│     ├─ data.js           Daten: Türme und Stufen, Gegner, Schwierigkeit, Wellen-Formel
-│     ├─ sim.js            Gegner-Bewegung, Zielwahl, Schüsse, Panzerung, Effekte
-│     └─ public/           Browser-Teil (client.js, render.js: Karte, Türme, Gegner, style.css)
+│  ├─ turmwacht/
+│  │  ├─ game.js           Server-Teil (Phasen, Aktionen, Koop-Wirtschaft, Wertung, viewFor)
+│  │  ├─ map.js            Karten-Generator (Pfad, Deko), Position auf dem Pfad
+│  │  ├─ data.js           Daten: Türme und Stufen, Gegner, Schwierigkeit, Wellen-Formel
+│  │  ├─ sim.js            Gegner-Bewegung, Zielwahl, Schüsse, Panzerung, Effekte
+│  │  └─ public/           Browser-Teil (client.js, render.js: Karte, Türme, Gegner, style.css)
+│  └─ wuerfelpoker/
+│     ├─ game.js           Server-Teil (Modus gleichzeitig/nacheinander, Züge, Zeitlimit, Bot-Takt, Wertung, viewFor)
+│     ├─ scoring.js        Felder, Punkte, Bonus (reine Funktionen)
+│     ├─ bots.js           Bot-Entscheidungen je Stärke (Erwartungswert-Tabellen für „schwer“)
+│     └─ public/           Browser-Teil (Würfeltisch, Punktzettel, Legende, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -436,7 +442,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht
+## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker
 
 ### 8.1 Eroberungs-Würfel
 
@@ -1038,6 +1044,78 @@ Aktionen (`POST /api/game/action`):
 
 Die Werte stehen in `games/turmwacht/data.js`, die Zeiten oben in `game.js`.
 
+### 8.10 Fünf-Würfel-Poker
+
+Würfelspiel im Yacht-Genre (eigene Umsetzung) für 1–8 Teilnehmer, freie Plätze auf Wunsch mit Bots.
+Fünf Würfel, bis zu drei Würfe pro Zug, 13 Felder auf dem Punktzettel. Lobby-Mitglieder, die nach
+dem Start dazukommen, schauen zu.
+
+**Vorbereitung:** Der Host wählt den **Modus**, die Zahl der Bots (0–7, höchstens 8 Teilnehmer) und
+die Bot-Stärke (leicht / mittel / schwer) und startet.
+- **Alle gleichzeitig:** Jeder spielt unabhängig auf seinem eigenen Zettel. Der Tisch oben zeigt die
+  eigenen Würfel; die Würfel der anderen stehen live als Mini-Würfel im Kopf ihrer Spalte (inkl.
+  gehaltener Würfel). Wer fertig ist, wartet auf die anderen.
+- **Nacheinander:** Reihum in der Reihenfolge der Spalten (Menschen, dann Bots). Der Tisch zeigt für
+  alle Namen, Farbe und Würfel dessen, der gerade dran ist; nur er hat den Würfeln-Knopf. Nach dem
+  Eintragen ist der Nächste dran (`currentId`); das Log meldet Feld und Punkte.
+
+**Zug:** Der erste Wurf würfelt alle fünf Würfel. Danach Würfel antippen (oder Tasten 1–5) zum
+Halten und erneut würfeln (Leertaste / R), höchstens dreimal. Eingetragen wird über die
+Vorschlags-Knöpfe in den eigenen freien Feldern (mögliche Punkte, vom Server berechnet als
+`players[].potentials`). Eine 0 muss mit einem zweiten Klick bestätigt werden („0 eintragen?“).
+
+**Felder** (`scoring.js`):
+
+| Bereich | Feld | Punkte |
+|---|---|---|
+| oben | Einser … Sechser | Summe der Würfel mit dieser Augenzahl |
+| oben | Bonus | +35, wenn oben mindestens 63 Punkte stehen |
+| unten | Dreierpasch / Viererpasch | mindestens 3 bzw. 4 gleiche: Summe aller Würfel |
+| unten | Full House | drei gleiche + zwei gleiche einer **anderen** Zahl: 25 (ein Fünferpasch zählt nicht) |
+| unten | Kleine Straße | 4 aufeinanderfolgende Zahlen: 30 |
+| unten | Große Straße | 5 aufeinanderfolgende Zahlen: 40 |
+| unten | Fünferpasch | fünf gleiche: 50 |
+| unten | Chance | Summe aller Würfel |
+
+- Gehaltene Würfel zählen mit; eine Straße darf über mehrere Würfe entstehen.
+- **Extra-Fünferpasch:** Steht im Feld Fünferpasch schon 50, bringt jeder weitere Fünferpasch +50.
+  Eingetragen wird trotzdem in ein freies Feld (keine Joker-Regel).
+- Passt nichts, wird in ein freies Feld eine 0 eingetragen (Streichen).
+- Unter dem Zettel erklärt eine einklappbare **Legende** alle Felder.
+
+**Zeitlimit:** 90 s pro Feld (im Modus „nacheinander“ nur für den, der dran ist). Läuft die Zeit ab,
+spielt die Bot-Logik „mittel“ den Zug zu Ende und trägt ein („Zeit abgelaufen – automatisch
+eingetragen“).
+
+**Bots** (`bots.js`): ein Schritt (Würfeln oder Eintragen) alle 0,8–1,2 s, nacheinander 1,1–1,5 s.
+- **leicht** hält die häufigste Augenzahl.
+- **mittel** erkennt fertige Hände und Straßen, versucht Full House und achtet auf den oberen Bonus.
+- **schwer** rechnet für jedes Haltemuster den Erwartungswert über alle möglichen Würfe (vorberechnete
+  Tabellen über die 252 Würfel-Mengen, ~1–2 ms je Entscheidung, einmalig ~0,3 s Vorberechnung).
+- Die Feldwahl ist bei allen Stufen gleich: Punkte gegen einen Richtwert je Feld, plus Bonus-Blick.
+- Simulierte Schnitte: leicht ≈ 165, mittel ≈ 224, schwer ≈ 235 Punkte.
+
+**Ende und Wertung:** Sind alle Zettel voll, gewinnt die höchste Gesamtpunktzahl (bei Gleichstand
+zählt der obere Teil inkl. Bonus). Das Ergebnis zeigt Oben, Bonus, Unten, Extra und Gesamt. Wer geht,
+zählt nicht mehr; ist kein Mensch mehr dabei, endet die Partie (`outcome: "aborted"`).
+
+**Sicht:** Es gibt keine geheimen Infos. `viewFor` rechnet nur Zeitpunkte in `turnRemainingMs` um
+und ergänzt `totals`, `done` und `potentials` je Spieler.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "mode": "nacheinander", "bots": 2, "botLevel": "schwer" }` | Host, vor dem Start |
+| Start | `{ "type": "start" }` | Host, vor dem Start |
+| Würfeln | `{ "type": "roll", "held": [true, true, false, false, false] }` | Spieler (nacheinander: wer dran ist) |
+| Halten | `{ "type": "hold", "held": [true, false, false, false, false] }` (nur Markierung, für die anderen sichtbar) | Spieler, nach dem ersten Wurf |
+| Eintragen | `{ "type": "score", "category": "fullHouse" }` | Spieler, nach dem ersten Wurf |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Spielende |
+
+Feld-Kennungen: `ones` … `sixes`, `three`, `four`, `fullHouse`, `smallStraight`, `largeStraight`,
+`fiver`, `chance`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -1178,10 +1256,11 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:artillerie` | `tests/artillerie.test.mjs` | ~3 s | Artillerie-Logik direkt: Gelände, Krater, Flugbahn (Wind, Kraft, Weltrand), Rumpftreffer, Schaden und Fallschaden, Splitter, Bohrer, Munition, Fahren, Zielphase (bereit/Zeitablauf), gleichzeitige Salve, Runden/Partie, Bots (Bedenkzeit, Treffer, Bohrer, Stärke, Einschießen), Verlassen, viewFor |
 | `npm run test:feierabend-faeuste` | `tests/feierabend-faeuste.test.mjs` | ~5 s | Feierabend-Fäuste-Logik direkt: Figurenwahl, Laufen und Kamera, Wellen, Treffer (Reichweite, Tiefe, einmal je Angriff), Kombo, Sprung, Spezial, kein Friendly Fire, Panzerung, Dauer-Festhalten, Angriffs-Tickets, Werfer, Schwierigkeit, Kisten/Essen, K.-o./Aufhelfen/Niederlage, Abschnittswechsel, Boss-Phasen, Wertung, Bot-Mitstreiter (Level auf „leicht“), Verlassen, viewFor |
 | `npm run test:turmwacht` | `tests/turmwacht.test.mjs` | ~2 s | Turmwacht-Logik direkt: Karten-Generator (200 Seeds), neue Karte, Einstellungen, Start/Startgold, Zuschauer ab Spieler 5, Bauen/Upgraden/Verkaufen mit Erstattung, gleich verteiltes Einkommen ohne Rundungsverlust, Schenken, Verlassen, Zielwahl, Kanone/Frost/Blitz/Panzerung, Schaden nach Investition, Bereit/Welle rufen, Leben/Niederlage/Sieg/Endlos, Tempo ×2, Wellen-Formel, Wertung, viewFor, Test-Bauer (leicht/10 Sieg, erster Koloss auf mittel besiegt, Rechenzeit) |
+| `npm run test:wuerfelpoker` | `tests/wuerfelpoker.test.mjs` | ~3 s | Fünf-Würfel-Poker-Logik direkt: Punkte aller Felder mit Grenzfällen, Bonus, Würfeln/Halten/höchstens 3 Würfe, Eintragen/Streichen, Straße über mehrere Würfe, Extra-Fünferpasch, gleichzeitig und nacheinander (Zugfolge, Bots nur im eigenen Zug, Verlassen), Zeitlimit, Bots aller Stufen („schwer“ schlägt „leicht“, Rechenzeit), Wertung, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Turmwacht (neue Karte, Bauen, Upgraden, Schenken, Bereit), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Turmwacht (neue Karte, Bauen, Upgraden, Schenken, Bereit), Fünf-Würfel-Poker (Würfeln, Halten per Klick und Taste, Eintragen, Mitspieler sehen live, Modus nacheinander, Legende), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~150 s | alle zwölf nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~160 s | alle dreizehn nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

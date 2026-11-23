@@ -71,7 +71,6 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Kurzidee | Lernzeit | Spieler | Aufwand | Wiederverwendung |
 |---|---|---|---|---|---|---|
-| 6 | **Fünf-Würfel-Poker** | Yacht-Genre: 13 Kategorien, 3 Würfe pro Zug, Punktzettel | 3 min | 1–8 | klein–mittel | Schocken-Würfel |
 | 7 | **Schiffe versenken** | Traditionell: Flotte setzen, abwechselnd schießen | 1 min | 2 (bzw. Turnier) | klein | `viewFor` für die verdeckte Flotte |
 
 #### Partyspiele für größere Runden
@@ -94,7 +93,8 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 4. ~~**Artillerie-Duell**~~ – umgesetzt in 0.10.0. Als Nächstes evtl. das **Burgen-Duell** als Modus davon.
 5. ~~**Koop-Prügelspiel „Feierabend-Fäuste“**~~ – umgesetzt in 0.12.0.
 6. ~~**Koop-Tower-Defense „Turmwacht“**~~ – umgesetzt in 0.13.0.
-7. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
+7. ~~**Fünf-Würfel-Poker**~~ – umgesetzt in 0.14.0.
+8. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
 
 **Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
 `public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth und Artillerie-Duell. Seit 0.12.0 auch mit mehreren Aktionstasten (`actionButtons`), genutzt von Feierabend-Fäuste.

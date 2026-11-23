@@ -7,6 +7,8 @@
  * Unten: Dreierpasch / Viererpasch (Summe aller Würfel), Full House 25
  *        (drei gleiche + zwei gleiche einer anderen Zahl), Kleine Straße 30
  *        (4 in Folge), Große Straße 40 (5 in Folge), Fünferpasch 50, Chance (Summe).
+ * Straßen zählen nur, wenn alle fünf Würfel im selben Wurf gefallen sind (beim
+ * letzten Wurf nichts gehalten) – das beschreibt `fresh`.
  * Extra-Fünferpasch: Wer das Feld Fünferpasch schon mit 50 belegt hat, bekommt für
  * jeden weiteren Fünferpasch +50 – eingetragen wird trotzdem normal (keine Joker-Regel).
  */
@@ -45,8 +47,11 @@ function hasRun(c, length) {
 
 const isFiver = dice => dice.length === 5 && dice.every(d => d === dice[0] && d > 0);
 
-/** Punkte, die `dice` im Feld `category` brächten. */
-function scoreFor(category, dice) {
+/**
+ * Punkte, die `dice` im Feld `category` brächten. fresh = alle fünf Würfel im
+ * selben Wurf gefallen (sonst zählen Straßen nicht).
+ */
+function scoreFor(category, dice, fresh = true) {
     const c = counts(dice);
     const upper = UPPER.indexOf(category);
     if (upper >= 0) return c[upper + 1] * (upper + 1);
@@ -55,8 +60,8 @@ function scoreFor(category, dice) {
         case "three": return max >= 3 ? sum(dice) : 0;
         case "four": return max >= 4 ? sum(dice) : 0;
         case "fullHouse": return c.includes(3) && c.includes(2) ? FIXED.fullHouse : 0;
-        case "smallStraight": return hasRun(c, 4) ? FIXED.smallStraight : 0;
-        case "largeStraight": return hasRun(c, 5) ? FIXED.largeStraight : 0;
+        case "smallStraight": return fresh && hasRun(c, 4) ? FIXED.smallStraight : 0;
+        case "largeStraight": return fresh && hasRun(c, 5) ? FIXED.largeStraight : 0;
         case "fiver": return max === 5 ? FIXED.fiver : 0;
         case "chance": return sum(dice);
         default: throw new Error("Unbekanntes Feld.");
@@ -64,9 +69,9 @@ function scoreFor(category, dice) {
 }
 
 /** Mögliche Punkte für alle freien Felder. */
-function potentials(sheet, dice) {
+function potentials(sheet, dice, fresh = true) {
     const result = {};
-    for (const category of CATEGORIES) if (sheet[category] === null) result[category] = scoreFor(category, dice);
+    for (const category of CATEGORIES) if (sheet[category] === null) result[category] = scoreFor(category, dice, fresh);
     return result;
 }
 

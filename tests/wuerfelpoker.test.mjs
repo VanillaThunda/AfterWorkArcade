@@ -1,7 +1,7 @@
 /**
  * Logik-Test für Fünf-Würfel-Poker – lädt games/wuerfelpoker/game.js direkt
  * (ohne Server) und prüft Punkte aller Felder, Bonus, Würfel-Regeln, gleichzeitiges
- * Spielen, Zeitlimit, Bots, Wertung und Verlassen.
+ * und reihum Spielen, Straßen nur aus einem Wurf, Zeitlimit, Bots, Wertung und Verlassen.
  *
  * Start:  npm run test:wuerfelpoker   bzw.  node tests/wuerfelpoker.test.mjs
  * Dauer:  ca. 3 Sekunden
@@ -14,7 +14,7 @@ import { PROJECT_ROOT, createTestRunner } from "./helpers.mjs";
 
 const require = createRequire(import.meta.url);
 const game = require(path.join(PROJECT_ROOT, "games", "wuerfelpoker", "game.js"));
-const { MAX_ROLLS, TURN_MS, BOT_STEP_MS, BOT_JITTER_MS, scoring, bots, setRandom } = game._internals;
+const { MAX_ROLLS, TURN_MS, BOT_STEP_MS, BOT_STEP_SEQ_MS, BOT_JITTER_MS, scoring, bots, setRandom } = game._internals;
 const { scoreFor, totals, emptySheet, potentials, CATEGORIES } = scoring;
 const { test, section, summary } = createTestRunner();
 
@@ -34,9 +34,9 @@ function script(...values) {
     });
 }
 
-function startGame({ players = [anna], bots: botCount = 0, botLevel = "mittel" } = {}) {
+function startGame({ players = [anna], bots: botCount = 0, botLevel = "mittel", mode = "gleichzeitig" } = {}) {
     let state = game.createState({ players });
-    state = act(state, anna, { type: "settings", bots: botCount, botLevel });
+    state = act(state, anna, { type: "settings", bots: botCount, botLevel, mode });
     return act(state, anna, { type: "start" });
 }
 
@@ -69,6 +69,10 @@ await test("alle Felder mit Grenzfällen", () => {
         ["chance", [1, 2, 3, 4, 6], 16]
     ];
     for (const [category, dice, expected] of cases) assert.equal(scoreFor(category, dice), expected, `${category} ${dice}`);
+    // Straßen nur aus einem Wurf (fresh = false: beim letzten Wurf war etwas gehalten)
+    assert.equal(scoreFor("smallStraight", [1, 2, 3, 4, 4], false), 0);
+    assert.equal(scoreFor("largeStraight", [2, 3, 4, 5, 6], false), 0);
+    assert.equal(scoreFor("chance", [2, 3, 4, 5, 6], false), 20);
 });
 
 await test("oberer Bonus ab 63, Gesamtsumme mit Extra-Fünferpasch", () => {
@@ -120,7 +124,7 @@ await test("Eintragen: Punkte, neuer Zug, belegtes Feld wird abgelehnt, Streiche
     state = act(state, anna, { type: "score", category: "fiver" }, T0 + 5000);
     const me = find(state, anna);
     assert.equal(me.sheet.fiver, 50);
-    assert.deepEqual(me.turn, { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 });
+    assert.deepEqual(me.turn, { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false });
     assert.equal(me.turnEndsAt, T0 + 5000 + TURN_MS, "neues Zeitlimit je Feld");
     script(1, 2, 3, 4, 6);
     state = act(state, anna, { type: "roll" });
@@ -128,6 +132,26 @@ await test("Eintragen: Punkte, neuer Zug, belegtes Feld wird abgelehnt, Streiche
     assert.throws(() => act(state, anna, { type: "score", category: "joker" }), /Unbekanntes Feld/);
     state = act(state, anna, { type: "score", category: "fullHouse" });
     assert.equal(find(state, anna).sheet.fullHouse, 0);
+});
+
+await test("Straße zählt nur, wenn alle fünf Würfel im selben Wurf fielen", () => {
+    let state = startGame();
+    script(2, 3, 4, 1, 1);
+    state = act(state, anna, { type: "roll" });
+    assert.equal(find(state, anna).turn.fresh, true);
+    script(5, 6);
+    state = act(state, anna, { type: "roll", held: [true, true, true, false, false] });
+    assert.deepEqual(find(state, anna).turn.dice, [2, 3, 4, 5, 6]);
+    assert.equal(find(state, anna).turn.fresh, false);
+    assert.equal(game.viewFor(state, anna.id).players[0].potentials.largeStraight, 0);
+    state = act(state, anna, { type: "score", category: "largeStraight" });
+    assert.equal(find(state, anna).sheet.largeStraight, 0, "mit gehaltenen Würfeln keine Straße");
+    script(6, 6, 6, 6, 6, 1, 2, 3, 4, 5);
+    state = act(state, anna, { type: "roll" });
+    state = act(state, anna, { type: "roll", held: [false, false, false, false, false] });
+    assert.equal(find(state, anna).turn.fresh, true, "alle neu gewürfelt zählt wieder");
+    state = act(state, anna, { type: "score", category: "smallStraight" });
+    assert.equal(find(state, anna).sheet.smallStraight, 30);
 });
 
 await test("Extra-Fünferpasch: +50, wenn das Feld schon 50 hat – nicht nach einer gestrichenen 0", () => {
@@ -160,6 +184,66 @@ await test("gleichzeitig: jeder würfelt unabhängig; Ende, wenn alle Zettel vol
     state = fillSheet(state, ben);
     assert.equal(state.phase, "finished");
     assert.equal(state.result.outcome, "finished");
+});
+
+await test("nacheinander: nur wer dran ist würfelt, danach der Nächste; Ende nach allen Zetteln", () => {
+    assert.throws(() => act(game.createState({ players: [anna] }), anna, { type: "settings", mode: "chaos" }), /Spielmodus/);
+    let state = startGame({ players: [anna, ben], mode: "nacheinander" });
+    assert.equal(state.mode, "nacheinander");
+    assert.equal(state.currentId, anna.id);
+    assert.equal(find(state, anna).turnEndsAt, T0 + TURN_MS);
+    assert.equal(find(state, ben).turnEndsAt, null, "Ben hat noch keine Uhr");
+    assert.throws(() => act(state, ben, { type: "roll" }), /nicht dran/);
+    script(3, 3, 3, 2, 2);
+    state = act(state, anna, { type: "roll" });
+    state = act(state, anna, { type: "score", category: "fullHouse" }, T0 + 4000);
+    assert.equal(state.currentId, ben.id);
+    assert.deepEqual(find(state, anna).turn.dice, [3, 3, 3, 2, 2], "Annas Würfel bleiben liegen");
+    assert.equal(find(state, anna).turnEndsAt, null);
+    assert.equal(find(state, ben).turnEndsAt, T0 + 4000 + TURN_MS);
+    assert.throws(() => act(state, anna, { type: "roll" }), /nicht dran/);
+    script(1, 1, 1, 1, 1);
+    state = act(state, ben, { type: "roll" });
+    state = act(state, ben, { type: "score", category: "ones" });
+    assert.equal(state.currentId, anna.id);
+    assert.equal(find(state, anna).turn.rolls, 0, "neuer Zug beginnt leer");
+    for (let round = 0; round < 12; round++) {
+        for (const player of [anna, ben]) {
+            const category = CATEGORIES.find(c => find(state, player).sheet[c] === null);
+            script(1, 1, 1, 1, 1);
+            state = act(state, player, { type: "roll" });
+            state = act(state, player, { type: "score", category });
+        }
+    }
+    assert.equal(state.phase, "finished");
+    assert.equal(state.currentId, null);
+});
+
+await test("nacheinander: Bots nur in ihrem Zug, Verlassen gibt den Zug weiter", () => {
+    setRandom(null);
+    let state = startGame({ players: [anna, ben], bots: 1, mode: "nacheinander" });
+    const bot = state.players[2];
+    assert.equal(bot.nextBotAt, null, "Bot wartet");
+    assert.equal(game.tick(state, { now: T0 + 60_000 }), undefined);
+    state = game.onPlayerLeave(state, anna);
+    assert.equal(state.currentId, ben.id);
+    script(2, 2, 2, 2, 2);
+    state = act(state, ben, { type: "roll" }, T0 + 1000);
+    state = act(state, ben, { type: "score", category: "twos" }, T0 + 1000);
+    assert.equal(state.currentId, bot.id);
+    assert.equal(find(state, bot).nextBotAt >= T0 + 1000 + BOT_STEP_SEQ_MS, true);
+    setRandom(null);
+    let now = T0 + 1000;
+    for (let i = 0; state.currentId === bot.id && i < 20; i++) {
+        now += BOT_STEP_SEQ_MS + BOT_JITTER_MS;
+        state = game.tick(state, { now }) ?? state;
+    }
+    assert.equal(state.currentId, ben.id, "nach dem Bot ist wieder Ben dran");
+    assert.equal(scoring.filledCount(find(state, bot).sheet), 1);
+    // Zeitlimit im Zug von Ben
+    state = game.tick(state, { now: now + TURN_MS + 10 }) ?? state;
+    assert.equal(scoring.filledCount(find(state, ben).sheet), 2);
+    assert.equal(state.currentId, bot.id);
 });
 
 section("Zeitlimit und Bots");
@@ -199,16 +283,17 @@ await test("„schwer“ schlägt „leicht“ im Schnitt; Entscheidungen schnel
         const sheet = emptySheet();
         let maxMs = 0;
         for (let r = 0; r < 13; r++) {
-            const turn = { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 };
+            const turn = { dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false };
             for (;;) {
                 const t0 = performance.now();
                 const d = bots.decide(sheet, turn, level);
                 maxMs = Math.max(maxMs, performance.now() - t0);
                 if (d.type === "score") {
-                    sheet[d.category] = scoreFor(d.category, turn.dice);
+                    sheet[d.category] = scoreFor(d.category, turn.dice, turn.fresh);
                     break;
                 }
                 turn.dice = turn.dice.map((v, i) => (d.held[i] && turn.rolls > 0 ? v : die()));
+                turn.fresh = turn.rolls === 0 || d.held.every(h => !h);
                 turn.rolls += 1;
             }
         }
@@ -234,7 +319,9 @@ await test("„schwer“ schlägt „leicht“ im Schnitt; Entscheidungen schnel
 await test("Bot nimmt eine fertige Große Straße und hält ein Viererpasch zusammen", () => {
     const sheet = emptySheet();
     for (const level of ["mittel", "schwer"]) {
-        assert.deepEqual(bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 1 }, level), { type: "score", category: "largeStraight" });
+        assert.deepEqual(bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 1, fresh: true }, level), { type: "score", category: "largeStraight" });
+        const notFresh = bots.decide(sheet, { dice: [2, 3, 4, 5, 6], held: [], rolls: 3, fresh: false }, level);
+        assert.notEqual(notFresh.category, "largeStraight", "gehaltene Straße zählt nicht");
         const d = bots.decide(sheet, { dice: [6, 6, 2, 6, 6], held: [], rolls: 1 }, level);
         assert.equal(d.type, "roll");
         assert.deepEqual(d.held, [true, true, false, true, true], level);
@@ -282,6 +369,7 @@ await test("viewFor: Summen, fertig-Flag und Restzeit statt Zeitpunkten", () => 
     assert.equal(me.nextBotAt, undefined);
     assert.equal(me.totals.total, 0);
     assert.equal(me.done, false);
+    assert.equal(me.potentials, null, "vor dem Wurf keine möglichen Punkte");
     assert.ok(me.turnRemainingMs <= TURN_MS);
 });
 

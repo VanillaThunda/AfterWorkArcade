@@ -4,14 +4,17 @@
  * Fünf-Würfel-Poker – Server-Teil.
  *
  * Würfelspiel im Yacht-Genre (eigene Umsetzung): 5 Würfel, bis zu 3 Würfe pro
- * Zug, 13 Felder auf dem Punktzettel. Alle spielen GLEICHZEITIG – jeder auf
- * seinem eigenen Zettel, für alle live sichtbar. Wer alle Felder voll hat,
- * wartet; sind alle fertig, gewinnt die höchste Gesamtpunktzahl.
+ * Zug, 13 Felder auf dem Punktzettel. Der Host wählt den Modus:
+ *   gleichzeitig  alle spielen parallel, jeder auf seinem eigenen Zettel (live
+ *                 sichtbar); wer fertig ist, wartet auf die anderen
+ *   nacheinander  klassisch reihum (currentId), nur der aktuelle Spieler würfelt
+ * Sind alle Zettel voll, gewinnt die höchste Gesamtpunktzahl.
  *
  * Phasen:  setup → playing → finished
  *
- * Zug eines Teilnehmers: turn = { dice[5], held[5], rolls }. „roll“ würfelt die
- * nicht gehaltenen Würfel neu (beim ersten Wurf alle), „score“ trägt ein Feld
+ * Zug eines Teilnehmers: turn = { dice[5], held[5], rolls, fresh }. „roll“ würfelt
+ * die nicht gehaltenen Würfel neu (beim ersten Wurf alle); fresh = im letzten Wurf
+ * war nichts gehalten – nur dann zählen Straßen. „score“ trägt ein Feld
  * ein und beginnt den nächsten Zug. Pro Feld hat ein Mensch TURN_MS Zeit, danach
  * spielt die Bot-Logik („mittel“) den Zug für ihn zu Ende.
  *
@@ -29,9 +32,12 @@ const MAX_PARTICIPANTS = 8;
 const MAX_BOTS = 7;
 const DEFAULT_BOTS = 1;
 const DEFAULT_BOT_LEVEL = "mittel";
+const MODES = Object.freeze({ gleichzeitig: "Alle gleichzeitig", nacheinander: "Nacheinander" });
+const DEFAULT_MODE = "gleichzeitig";
 const MAX_ROLLS = 3;
 const TURN_MS = 90_000;        // Zeit pro Feld für Menschen
 const BOT_STEP_MS = 800;       // Pause zwischen zwei Bot-Schritten
+const BOT_STEP_SEQ_MS = 1100;  // nacheinander etwas langsamer, damit man zusehen kann
 const BOT_JITTER_MS = 400;
 const TICK_MS = 200;
 const LOG_SIZE = 8;
@@ -54,9 +60,10 @@ function addLog(state, text) {
     if (state.log.length > LOG_SIZE) state.log.splice(0, state.log.length - LOG_SIZE);
 }
 
-const emptyTurn = () => ({ dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0 });
+const emptyTurn = () => ({ dice: [0, 0, 0, 0, 0], held: [false, false, false, false, false], rolls: 0, fresh: false });
 const isDone = p => scoring.filledCount(p.sheet) === CATEGORIES.length;
 const activePlayers = state => state.players.filter(p => !p.left);
+const sequential = state => state.mode === "nacheinander";
 
 function requireHost(player, context) {
     if (!context || player.id !== context.hostId) throw new Error("Das darf nur der Host der Lobby.");
@@ -67,6 +74,7 @@ function requirePlayer(state, player) {
     const p = state.players.find(x => x.id === player.id && !x.left && !x.bot);
     if (!p) throw new Error("Du schaust bei dieser Partie nur zu.");
     if (isDone(p)) throw new Error("Dein Zettel ist schon voll.");
+    if (sequential(state) && state.currentId !== p.id) throw new Error("Du bist gerade nicht dran.");
     return p;
 }
 
@@ -75,8 +83,35 @@ function parseHeld(held) {
     return held.map(Boolean);
 }
 
-function botDelay() {
-    return BOT_STEP_MS + Math.floor(randomUnit() * BOT_JITTER_MS);
+function botDelay(state) {
+    return (sequential(state) ? BOT_STEP_SEQ_MS : BOT_STEP_MS) + Math.floor(randomUnit() * BOT_JITTER_MS);
+}
+
+/** Zug-Uhr eines Teilnehmers starten (Mensch: Zeitlimit, Bot: nächster Schritt). */
+function startClock(state, p, now) {
+    p.turnEndsAt = p.bot ? null : now + TURN_MS;
+    p.nextBotAt = p.bot ? now + botDelay(state) : null;
+}
+
+function stopClock(p) {
+    p.turnEndsAt = null;
+    p.nextBotAt = null;
+}
+
+/** Nacheinander: den nächsten aktiven Spieler mit freien Feldern an die Reihe nehmen. */
+function advance(state, now) {
+    const list = state.players;
+    const start = list.findIndex(p => p.id === state.currentId);
+    for (let step = 1; step <= list.length; step++) {
+        const p = list[(start + step) % list.length];
+        if (!p.left && !isDone(p)) {
+            state.currentId = p.id;
+            p.turn = emptyTurn();
+            startClock(state, p, now);
+            return;
+        }
+    }
+    state.currentId = null;
 }
 
 // ===========================================================================
@@ -88,10 +123,11 @@ function startMatch(state, now) {
     const botCount = Math.min(state.settings.bots, MAX_PARTICIPANTS - humans.length);
     const names = pickBotNames(botCount, humans.map(h => h.name));
     if (botCount > 0 && state.settings.botLevel === "schwer") bots.warmUp();
+    state.mode = state.settings.mode;
     const make = (id, name, bot) => ({
         id, name, bot, level: bot ? state.settings.botLevel : null, left: false,
         sheet: scoring.emptySheet(), extra: 0, turn: emptyTurn(), rollNo: 0,
-        turnEndsAt: bot ? null : now + TURN_MS, nextBotAt: bot ? now + botDelay() : null
+        turnEndsAt: null, nextBotAt: null
     });
     state.players = [
         ...humans.map(m => make(m.id, m.name, false)),
@@ -101,7 +137,15 @@ function startMatch(state, now) {
     state.result = null;
     state.log = [];
     state.matchNumber += 1;
-    addLog(state, `Partie ${state.matchNumber}: Alle würfeln gleichzeitig – viel Glück!`);
+    if (sequential(state)) {
+        state.currentId = state.players[0].id;
+        startClock(state, state.players[0], now);
+        addLog(state, `Partie ${state.matchNumber}: Es wird reihum gewürfelt – ${state.players[0].name} beginnt.`);
+    } else {
+        state.currentId = null;
+        for (const p of state.players) startClock(state, p, now);
+        addLog(state, `Partie ${state.matchNumber}: Alle würfeln gleichzeitig – viel Glück!`);
+    }
 }
 
 function doRoll(state, p, held, now) {
@@ -110,9 +154,10 @@ function doRoll(state, p, held, now) {
     if (!first && held.every(Boolean)) throw new Error("Alle Würfel sind gehalten – trag ein Feld ein.");
     p.turn.dice = p.turn.dice.map((value, i) => (!first && held[i] ? value : randomDie()));
     p.turn.held = first ? [false, false, false, false, false] : held;
+    p.turn.fresh = first || held.every(h => !h);
     p.turn.rolls += 1;
     p.rollNo += 1;
-    if (p.bot) p.nextBotAt = now + botDelay();
+    if (p.bot) p.nextBotAt = now + botDelay(state);
 }
 
 function doScore(state, p, category, now) {
@@ -126,15 +171,21 @@ function doScore(state, p, category, now) {
     } else if (category === "fiver" && scoring.isFiver(dice)) {
         addLog(state, `${p.name} hat einen Fünferpasch!`);
     }
-    p.sheet[category] = scoring.scoreFor(category, dice);
+    p.sheet[category] = scoring.scoreFor(category, dice, p.turn.fresh);
+    if (sequential(state)) {
+        stopClock(p);
+        addLog(state, `${p.name}: ${LABELS[category]} – ${p.sheet[category]} Punkte.`);
+        if (isDone(p)) addLog(state, `${p.name} ist fertig: ${scoring.totals(p.sheet, p.extra).total} Punkte.`);
+        checkEnd(state);
+        if (state.phase === "playing") advance(state, now);
+        return;
+    }
     p.turn = emptyTurn();
     if (isDone(p)) {
-        p.turnEndsAt = null;
-        p.nextBotAt = null;
+        stopClock(p);
         addLog(state, `${p.name} ist fertig: ${scoring.totals(p.sheet, p.extra).total} Punkte.`);
     } else {
-        p.turnEndsAt = p.bot ? null : now + TURN_MS;
-        if (p.bot) p.nextBotAt = now + botDelay();
+        startClock(state, p, now);
     }
     checkEnd(state);
 }
@@ -161,10 +212,8 @@ function finishMatch(state, outcome) {
         .map(p => ({ p, t: scoring.totals(p.sheet, p.extra) }))
         .sort((a, b) => (b.t.total - a.t.total) || (b.t.upper + b.t.bonus - a.t.upper - a.t.bonus));
     state.phase = "finished";
-    for (const p of state.players) {
-        p.turnEndsAt = null;
-        p.nextBotAt = null;
-    }
+    state.currentId = null;
+    for (const p of state.players) stopClock(p);
     const placements = ranked.map(r => r.p.id);
     state.result = { outcome, winnerId: placements[0] ?? null, placements };
     if (outcome === "finished" && ranked[0]) addLog(state, `${ranked[0].p.name} gewinnt mit ${ranked[0].t.total} Punkten!`);
@@ -187,6 +236,10 @@ const actions = {
         if (action.botLevel !== undefined) {
             if (!Object.hasOwn(bots.LEVELS, action.botLevel)) throw new Error("Unbekannte Bot-Stärke.");
             state.settings.botLevel = action.botLevel;
+        }
+        if (action.mode !== undefined) {
+            if (!Object.hasOwn(MODES, action.mode)) throw new Error("Unbekannter Spielmodus.");
+            state.settings.mode = action.mode;
         }
     },
 
@@ -217,7 +270,7 @@ const actions = {
     "new-match"(state, action, player, context) {
         requireHost(player, context);
         if (state.phase !== "finished") throw new Error("Das Spiel läuft noch.");
-        Object.assign(state, { phase: "setup", players: [], result: null, log: [] });
+        Object.assign(state, { phase: "setup", players: [], result: null, log: [], currentId: null });
     }
 };
 
@@ -232,6 +285,7 @@ function viewFor(state) {
         players: state.players.map(({ nextBotAt, turnEndsAt, ...p }) => ({
             ...p,
             totals: scoring.totals(p.sheet, p.extra),
+            potentials: p.turn.rolls > 0 ? scoring.potentials(p.sheet, p.turn.dice, p.turn.fresh) : null,
             done: isDone(p),
             turnRemainingMs: turnEndsAt ? Math.max(0, turnEndsAt - now) : null
         }))
@@ -246,7 +300,7 @@ module.exports = {
     meta: {
         id: "wuerfelpoker",
         name: "Fünf-Würfel-Poker",
-        description: "Fünf Würfel, drei Würfe, dreizehn Felder: Pasch, Full House, Straßen und Fünferpasch. Alle würfeln gleichzeitig auf ihrem eigenen Zettel – auch gegen Bots.",
+        description: "Fünf Würfel, drei Würfe, dreizehn Felder: Pasch, Full House, Straßen und Fünferpasch. Alle gleichzeitig oder reihum – auch gegen Bots.",
         minPlayers: 1,
         maxPlayers: MAX_PARTICIPANTS,
         tickMs: TICK_MS
@@ -257,10 +311,13 @@ module.exports = {
             phase: "setup",
             matchNumber: 0,
             members: players.map(({ id, name }) => ({ id, name })),
-            settings: { bots: DEFAULT_BOTS, maxBots: MAX_BOTS, botLevel: DEFAULT_BOT_LEVEL },
+            mode: DEFAULT_MODE,
+            currentId: null,
+            settings: { bots: DEFAULT_BOTS, maxBots: MAX_BOTS, botLevel: DEFAULT_BOT_LEVEL, mode: DEFAULT_MODE },
             catalog: {
                 categories: CATEGORIES.map(id => ({ id, label: LABELS[id], upper: UPPER.includes(id) })),
                 levels: Object.fromEntries(Object.entries(bots.LEVELS).map(([id, l]) => [id, l.name])),
+                modes: { ...MODES },
                 upperBonusAt: scoring.UPPER_BONUS_AT, upperBonus: scoring.UPPER_BONUS, extraFiver: scoring.EXTRA_FIVER,
                 maxRolls: MAX_ROLLS, turnMs: TURN_MS, maxParticipants: MAX_PARTICIPANTS
             },
@@ -315,14 +372,15 @@ module.exports = {
         const p = next.players.find(x => x.id === player.id);
         if (!p || p.left || next.phase !== "playing") return next;
         p.left = true;
-        p.turnEndsAt = null;
+        stopClock(p);
         addLog(next, `${p.name} hat das Spiel verlassen.`);
         checkEnd(next);
+        if (next.phase === "playing" && sequential(next) && next.currentId === p.id) advance(next, Date.now());
         return next;
     },
 
     /** Nur für Tests. */
     _internals: {
-        MAX_PARTICIPANTS, MAX_BOTS, MAX_ROLLS, TURN_MS, BOT_STEP_MS, BOT_JITTER_MS, scoring, bots, setRandom
+        MAX_PARTICIPANTS, MAX_BOTS, MAX_ROLLS, TURN_MS, BOT_STEP_MS, BOT_STEP_SEQ_MS, BOT_JITTER_MS, MODES, scoring, bots, setRandom
     }
 };

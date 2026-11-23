@@ -1165,6 +1165,29 @@ await test("Host beendet Fünf-Würfel-Poker → zurück in der Lobby", async ()
     await ben.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Anna");
 });
+await test("Nacheinander: Name und Würfel des Aktiven auf dem Tisch, danach ist Ben dran", async () => {
+    await startGame(anna, "wuerfelpoker");
+    await anna.waitFor(`document.querySelector('.wp[data-phase="setup"] .wp-mode')`, "Modus-Auswahl");
+    assert.ok(await anna.eval(`return document.querySelector(".wp-legend").textContent.includes("im selben Wurf");`), "Legende erklärt Straßen");
+    await anna.eval(`const s = document.querySelector(".wp-mode"); s.value = "nacheinander"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".wp-card")?.textContent.includes("reihum")`, "Ben sieht den Modus");
+    await anna.eval(`const s = document.querySelector(".wp-bots"); s.value = "0"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".wp-card")?.textContent.includes("Bots: 0")`, "keine Bots");
+    await anna.click(".wp-start");
+    await anna.waitFor(`document.querySelector(".wp-player")?.textContent === "Du bist dran!"`, "Anna ist dran");
+    await ben.waitFor(`document.querySelector(".wp-player")?.textContent === "Anna ist dran"`, "Ben sieht, wer dran ist");
+    assert.equal(await ben.eval(`return document.querySelector(".wp-roll").hidden;`), true, "Ben hat keinen Würfeln-Knopf");
+    assert.equal(await ben.eval(`return [...document.querySelectorAll(".wp-mini-dice")].every(d => d.hidden);`), true, "keine Mini-Würfel im Zettel");
+    await anna.click(".wp-roll");
+    await ben.waitFor(`document.querySelectorAll(".wp-felt .wp-die:not(.wp-blank)").length === 5`, "Ben sieht Annas Würfel auf dem Tisch");
+    await ben.screenshot("36-wuerfelpoker-nacheinander.png");
+    await anna.waitFor(`document.querySelector('.wp-potential[data-category="chance"]')`, "Vorschlag Chance");
+    await anna.click('.wp-potential[data-category="chance"]');
+    await ben.waitFor(`document.querySelector(".wp-player")?.textContent === "Du bist dran!"`, "jetzt ist Ben dran");
+    await anna.waitFor(`document.querySelector(".wp-player")?.textContent === "Ben ist dran"`, "Anna wartet");
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Ben");
+});
 
 section("Host-Wechsel und private Lobbys");
 

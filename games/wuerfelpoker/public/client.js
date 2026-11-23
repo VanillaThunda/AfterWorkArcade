@@ -1,17 +1,22 @@
 /**
  * Fünf-Würfel-Poker – Client-Teil.
  *
- * Oben der eigene Würfeltisch (5 Würfel zum Halten, „Würfeln“, Zeitbalken),
- * darunter der gemeinsame Punktzettel: eine Spalte je Teilnehmer, die eigene
- * vorne. Eigene freie Felder zeigen nach einem Wurf die möglichen Punkte als
- * Knöpfe; eine 0 muss mit einem zweiten Klick bestätigt werden.
+ * Oben der Würfeltisch (5 Würfel zum Halten, „Würfeln“, Zeitbalken), darunter
+ * der gemeinsame Punktzettel: eine Spalte je Teilnehmer, die eigene vorne.
+ * Eigene freie Felder zeigen nach einem Wurf die möglichen Punkte (vom Server,
+ * players[].potentials) als Knöpfe; eine 0 muss mit einem zweiten Klick
+ * bestätigt werden. Ganz unten eine kurze Legende der Felder.
+ *
+ * Modus „gleichzeitig“: der Tisch zeigt die eigenen Würfel, die Würfel der
+ * anderen stehen als Mini-Würfel im Spaltenkopf. Modus „nacheinander“: der Tisch
+ * zeigt den Spieler, der gerade dran ist (Name + Würfel), für alle gleich.
  *
  * Tastatur: 1–5 hält/löst einen Würfel, Leertaste oder R würfelt.
  *
  * Der Punktzettel wird einmal aufgebaut und danach nur in den Zellen
  * aktualisiert – so gehen Klicks nicht verloren, während Bots würfeln.
  *
- * Aktionen:  settings {bots, botLevel}, start, roll {held}, hold {held},
+ * Aktionen:  settings {bots, botLevel, mode}, start, roll {held}, hold {held},
  *            score {category}, new-match
  *
  * Würfel-Darstellung und Wurf-Animation sind aus Schocken übernommen
@@ -31,6 +36,20 @@ const PIPS = {
 const ROLL_ANIMATION_MS = 900;
 const STAGGER_MS = 70;
 const CONFIRM_MS = 3000;
+
+/** Legende: was die Felder verlangen und bringen. */
+const LEGEND = [
+    ["Einser … Sechser", "Summe aller Würfel mit dieser Augenzahl. Ab 63 Punkten oben gibt es +35 Bonus (drei Gleiche in jedem Feld ergeben genau 63)."],
+    ["Dreierpasch", "Mindestens drei gleiche Würfel – zählt die Summe aller fünf."],
+    ["Viererpasch", "Mindestens vier gleiche Würfel – zählt die Summe aller fünf."],
+    ["Full House", "Drei gleiche und zwei gleiche einer anderen Zahl (z. B. 3-3-3-5-5) – 25 Punkte."],
+    ["Kleine Straße", "Vier aufeinanderfolgende Zahlen (1-2-3-4, 2-3-4-5 oder 3-4-5-6) – 30 Punkte."],
+    ["Große Straße", "Fünf aufeinanderfolgende Zahlen (1-2-3-4-5 oder 2-3-4-5-6) – 40 Punkte."],
+    ["Straßen", "zählen nur, wenn alle fünf Würfel im selben Wurf gefallen sind – also beim letzten Wurf kein Würfel gehalten wurde."],
+    ["Fünferpasch", "Fünf gleiche Würfel – 50 Punkte. Jeder weitere Fünferpasch bringt +50 extra (eingetragen wird trotzdem in ein freies Feld)."],
+    ["Chance", "Passt immer – zählt die Summe aller Würfel."],
+    ["Streichen", "Passt nichts, trägst du in ein freies Feld eine 0 ein."]
+];
 
 function createElement(tag, className, text) {
     const element = document.createElement(tag);
@@ -81,13 +100,23 @@ const isTyping = () => {
     return Boolean(el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable || el.closest?.("dialog[open]")));
 };
 
+function createLegend() {
+    const box = createElement("details", "wp-legend");
+    box.open = true;
+    box.append(createElement("summary", null, "Legende"));
+    const list = createElement("dl");
+    for (const [term, text] of LEGEND) list.append(createElement("dt", null, term), createElement("dd", null, text));
+    box.append(list);
+    return box;
+}
+
 export function mount(container, ctx) {
     const frame = createElement("div", "wp-root");
     const root = createElement("div", "wp");
     const top = createElement("div", "wp-top");          // Setup, eigener Tisch oder Ergebnis
     const sheetWrap = createElement("div", "wp-sheet-wrap");
     const log = createElement("ul", "wp-log");
-    root.append(top, sheetWrap, log);
+    root.append(top, sheetWrap, log, createLegend());
     frame.append(root);
     container.append(frame);
 
@@ -111,7 +140,11 @@ export function mount(container, ctx) {
 
     const isHost = () => ctx.getLobby()?.hostId === ctx.me.id;
     const me = () => state?.players.find(p => p.id === ctx.me.id && !p.left) ?? null;
-    const canAct = () => state?.phase === "playing" && me() && !me().done;
+    const sequential = () => state?.mode === "nacheinander";
+    const current = () => state?.players.find(p => p.id === state.currentId) ?? null;
+    /** Wessen Würfel der Tisch zeigt: nacheinander der aktuelle Spieler, sonst ich. */
+    const shown = () => (sequential() ? current() : me());
+    const canAct = () => state?.phase === "playing" && me() && !me().done && (!sequential() || state.currentId === ctx.me.id);
 
     async function send(action) {
         if (busy) return;
@@ -143,7 +176,7 @@ export function mount(container, ctx) {
     function scoreField(category) {
         const self = me();
         if (!canAct() || self.turn.rolls === 0) return;
-        const value = state.potentials?.[category];
+        const value = self.potentials?.[category];
         if (value === 0 && (!confirm || confirm.category !== category || performance.now() > confirm.until)) {
             confirm = { category, until: performance.now() + CONFIRM_MS };
             updateSheet();
@@ -195,14 +228,14 @@ export function mount(container, ctx) {
     // --- Oberer Bereich --------------------------------------------------------
     function renderTop() {
         const host = isHost();
-        const key = JSON.stringify([state.phase, state.matchNumber, host, state.phase === "setup" ? [state.settings, state.members.length] : null, state.result, Boolean(me())]);
+        const key = JSON.stringify([state.phase, state.matchNumber, host, state.phase === "setup" ? [state.settings, state.members.length] : null, state.result, Boolean(me()), state.mode]);
         if (key !== topKey) {
             topKey = key;
             tableEls = null;
             top.replaceChildren();
             if (state.phase === "setup") renderSetup(host);
             else if (state.phase === "finished") renderResult(host);
-            else if (me()) buildTable();
+            else if (me() || sequential()) buildTable();
             else top.append(createElement("p", "wp-muted wp-spectator", "Du schaust zu – bei der nächsten Partie bist du dabei."));
         }
         if (tableEls) renderTable();
@@ -210,6 +243,7 @@ export function mount(container, ctx) {
 
     function buildTable() {
         const felt = createElement("div", "wp-felt");
+        const player = createElement("div", "wp-player");
         const status = createElement("div", "wp-status");
         const dice = createElement("div", "wp-dice");
         const dieEls = [0, 1, 2, 3, 4].map(i => {
@@ -226,44 +260,69 @@ export function mount(container, ctx) {
         const timerSlot = createElement("div", "wp-timer-slot");
         controls.append(rollBtn, timerSlot);
         const hint = createElement("p", "wp-hint", "");
-        felt.append(status, dice, controls, hint);
+        felt.append(player, status, dice, controls, hint);
         top.append(felt);
-        tableEls = { status, dieEls, rollBtn, timerSlot, hint, timerKey: "" };
+        tableEls = { felt, player, status, dieEls, rollBtn, timerSlot, hint, timerKey: "" };
     }
 
     function renderTable() {
         const self = me();
-        if (!self || !tableEls) return;
-        const { status, dieEls, rollBtn, timerSlot, hint } = tableEls;
-        const filled = state.catalog.categories.filter(c => self.sheet[c.id] !== null).length;
+        const active = shown();
+        if (!tableEls) return;
+        const { felt, player, status, dieEls, rollBtn, timerSlot, hint } = tableEls;
         const max = state.catalog.maxRolls;
-        if (pendingHold === 0) held = [...self.turn.held];
-        if (self.done) {
+        const mine = Boolean(active && self && active.id === self.id);
+        const myTurn = mine && canAct();
+        if (pendingHold === 0 && mine) held = [...self.turn.held];
+        const shownHeld = mine ? held : active?.turn.held ?? [];
+
+        // Kopfzeile: nacheinander Name des aktuellen Spielers
+        player.hidden = !sequential();
+        if (sequential()) {
+            const text = !active ? "" : mine ? "Du bist dran!" : `${active.name} ist dran`;
+            if (player.textContent !== text) player.textContent = text;
+            felt.style.setProperty("--wp-color", active?.color ?? "transparent");
+        }
+        felt.classList.toggle("is-waiting", sequential() && !mine);
+
+        const filledOf = p => state.catalog.categories.filter(c => p.sheet[c.id] !== null).length;
+        if (!active) {
+            status.textContent = "";
+        } else if (!sequential() && self.done) {
             const waiting = state.players.filter(p => !p.left && !p.done).length;
             status.textContent = `Fertig: ${self.totals.total} Punkte – warte auf die anderen (${waiting} ${waiting === 1 ? "spielt" : "spielen"} noch).`;
         } else {
-            status.textContent = `Feld ${filled + 1}/13 · Wurf ${self.turn.rolls}/${max} · ${self.totals.total} Punkte`;
+            status.textContent = `Feld ${filledOf(active) + 1}/13 · Wurf ${active.turn.rolls}/${max} · ${active.totals.total} Punkte`;
         }
         dieEls.forEach((die, i) => {
-            const value = self.turn.dice[i];
+            const value = active?.turn.dice[i] ?? 0;
             if (Number(die.dataset.value ?? -1) !== value) {
                 paintDie(die, value);
                 die.dataset.value = String(value);
             }
-            die.classList.toggle("wp-held", Boolean(held[i]) && self.turn.rolls > 0);
-            die.setAttribute("aria-pressed", String(Boolean(held[i])));
+            die.classList.toggle("wp-clickable", myTurn);
+            die.classList.toggle("wp-held", Boolean(shownHeld[i]) && (active?.turn.rolls ?? 0) > 0);
+            die.setAttribute("aria-pressed", String(Boolean(shownHeld[i])));
         });
-        animate(dieEls, self);
-        const rollsLeft = max - self.turn.rolls;
-        rollBtn.textContent = self.turn.rolls === 0 ? "Würfeln" : rollsLeft > 0 ? `Würfeln (noch ${rollsLeft})` : "Feld eintragen ↓";
-        rollBtn.disabled = self.done || rollsLeft === 0 || (self.turn.rolls > 0 && held.every(Boolean));
-        hint.textContent = self.done ? "" : self.turn.rolls === 0 ? "Leertaste oder R würfelt." :
-            rollsLeft > 0 ? "Würfel antippen (oder 1–5) zum Halten – oder unten ein Feld eintragen." : "Keine Würfe mehr – trag unten ein Feld ein.";
-        const timerKey = `${state.matchNumber}|${filled}|${self.done}`;
+        if (active) animate(dieEls, active);
+
+        const rolls = active?.turn.rolls ?? 0;
+        const rollsLeft = max - rolls;
+        rollBtn.hidden = !mine;
+        rollBtn.textContent = rolls === 0 ? "Würfeln" : rollsLeft > 0 ? `Würfeln (noch ${rollsLeft})` : "Feld eintragen ↓";
+        rollBtn.disabled = !myTurn || rollsLeft === 0 || (rolls > 0 && held.every(Boolean));
+        if (!mine) {
+            hint.textContent = !active ? "" : active.bot ? "Der Bot würfelt …" : `${self ? "Warte, bis du dran bist." : "Du schaust zu."}`;
+        } else {
+            hint.textContent = self.done ? "" : rolls === 0 ? "Leertaste oder R würfelt." :
+                rollsLeft > 0 ? "Würfel antippen (oder 1–5) zum Halten – oder unten ein Feld eintragen." : "Keine Würfe mehr – trag unten ein Feld ein.";
+        }
+        const done = !active || (mine && self.done);
+        const timerKey = `${state.matchNumber}|${active?.id}|${active ? filledOf(active) : 0}|${done}`;
         if (timerKey !== tableEls.timerKey) {
             tableEls.timerKey = timerKey;
             timerSlot.replaceChildren();
-            if (!self.done && self.turnRemainingMs !== null) timerSlot.append(createTimer(self.turnRemainingMs, state.catalog.turnMs));
+            if (!done && active.turnRemainingMs !== null) timerSlot.append(createTimer(active.turnRemainingMs, state.catalog.turnMs));
         }
     }
 
@@ -271,13 +330,15 @@ export function mount(container, ctx) {
         const box = createElement("div", "wp-card");
         box.append(createElement("h3", null, "Fünf-Würfel-Poker"));
         box.append(createElement("p", null, "Fünf Würfel, bis zu drei Würfe pro Zug: Würfel antippen hält sie fest, dann ein Feld auf dem Zettel eintragen. Nach 13 Zügen ist der Zettel voll – die meisten Punkte gewinnen."));
-        box.append(createElement("p", "wp-muted", `Alle würfeln gleichzeitig. Oben gibt es +${state.catalog.upperBonus} Bonus ab ${state.catalog.upperBonusAt} Punkten, jeder weitere Fünferpasch bringt +${state.catalog.extraFiver}. Pro Feld hast du ${state.catalog.turnMs / 1000} s.`));
+        const modeText = state.settings.mode === "nacheinander" ? "Es wird reihum gewürfelt." : "Alle würfeln gleichzeitig.";
+        box.append(createElement("p", "wp-muted", `${modeText} Oben gibt es +${state.catalog.upperBonus} Bonus ab ${state.catalog.upperBonusAt} Punkten, jeder weitere Fünferpasch bringt +${state.catalog.extraFiver}. Pro Feld hast du ${state.catalog.turnMs / 1000} s.`));
         const maxBots = Math.max(0, Math.min(state.settings.maxBots, state.catalog.maxParticipants - state.members.length));
         if (host) {
             const row = createElement("div", "wp-setup");
             row.append(
-                createChoice("Bots", "wp-bots", Array.from({ length: maxBots + 1 }, (_, n) => [String(n), String(n)]), String(Math.min(state.settings.bots, maxBots)), value => send({ type: "settings", bots: Number(value) })),
-                createChoice("Bot-Stärke", "wp-bot-level", Object.entries(state.catalog.levels), state.settings.botLevel, value => send({ type: "settings", botLevel: value }))
+                createChoice("Modus", "wp-mode", Object.entries(state.catalog.modes), state.settings.mode, value => ctx.sendAction({ type: "settings", mode: value })),
+                createChoice("Bots", "wp-bots", Array.from({ length: maxBots + 1 }, (_, n) => [String(n), String(n)]), String(Math.min(state.settings.bots, maxBots)), value => ctx.sendAction({ type: "settings", bots: Number(value) })),
+                createChoice("Bot-Stärke", "wp-bot-level", Object.entries(state.catalog.levels), state.settings.botLevel, value => ctx.sendAction({ type: "settings", botLevel: value }))
             );
             box.append(row, button("wp-start", "Spiel starten", () => send({ type: "start" })));
         } else {
@@ -350,6 +411,7 @@ export function mount(container, ctx) {
             th.style.setProperty("--wp-color", p.color);
             const name = createElement("div", "wp-col-name", p.id === ctx.me.id ? `${p.name} (du)` : p.name);
             const dice = createElement("div", "wp-mini-dice");
+            dice.hidden = sequential();  // nacheinander stehen die Würfel auf dem Tisch
             const dieEls = [0, 1, 2, 3, 4].map(() => {
                 const die = createDie(0, "wp-die wp-mini");
                 dice.append(die);
@@ -404,8 +466,8 @@ export function mount(container, ctx) {
                 const td = cells.get(`${c.id}|${p.id}`);
                 if (!td) continue;
                 const value = p.sheet[c.id];
-                const potential = p.id === ctx.me.id && value === null && state.phase === "playing" && self && !self.done && self.turn.rolls > 0
-                    ? state.potentials?.[c.id] : undefined;
+                const potential = p.id === ctx.me.id && value === null && canAct() && self.turn.rolls > 0
+                    ? self.potentials?.[c.id] : undefined;
                 if (potential !== undefined) {
                     const b = potentialButtons.get(c.id);
                     const confirming = confirm?.category === c.id;
@@ -425,10 +487,12 @@ export function mount(container, ctx) {
             set("total", String(p.totals.total));
             const filled = state.catalog.categories.filter(c => p.sheet[c.id] !== null).length;
             const info = headInfo.get(p.id);
-            const text = p.done ? "✓ fertig" : `Feld ${filled + 1}/13 · Wurf ${p.turn.rolls}`;
+            const text = p.done ? "✓ fertig" : sequential() ? (p.id === state.currentId ? "🎲 ist dran" : `Feld ${filled + 1}/13`) : `Feld ${filled + 1}/13 · Wurf ${p.turn.rolls}`;
+            const th = headInfo.get(p.id)?.parentElement;
+            th?.classList.toggle("is-current", state.phase === "playing" && p.id === state.currentId);
             if (info && info.textContent !== text) info.textContent = text;
             const dieEls = headDice.get(p.id);
-            if (dieEls) {
+            if (dieEls && !sequential()) {
                 dieEls.forEach((die, i) => {
                     const value = p.turn.dice[i];
                     if (Number(die.dataset.value ?? -1) !== value) {
@@ -448,7 +512,7 @@ export function mount(container, ctx) {
             sheetWrap.replaceChildren();
             return;
         }
-        const key = JSON.stringify([state.matchNumber, columns().map(p => p.id), Boolean(me())]);
+        const key = JSON.stringify([state.matchNumber, columns().map(p => p.id), Boolean(me()), state.mode]);
         if (key !== sheetKey) {
             sheetKey = key;
             buildSheet();
@@ -461,37 +525,11 @@ export function mount(container, ctx) {
         log.hidden = state.log.length === 0;
     }
 
-    /** Mögliche Punkte für die eigenen Würfel (Regeln wie scoring.js). */
-    function computePotentials() {
-        const self = me();
-        if (!self || self.turn.rolls === 0) return null;
-        const dice = self.turn.dice;
-        const c = [0, 0, 0, 0, 0, 0, 0];
-        for (const d of dice) c[d] += 1;
-        const sum = dice.reduce((a, b) => a + b, 0);
-        const max = Math.max(...c);
-        const run = length => {
-            let n = 0;
-            for (let v = 1; v <= 6; v++) {
-                n = c[v] ? n + 1 : 0;
-                if (n >= length) return true;
-            }
-            return false;
-        };
-        const all = {
-            ones: c[1], twos: c[2] * 2, threes: c[3] * 3, fours: c[4] * 4, fives: c[5] * 5, sixes: c[6] * 6,
-            three: max >= 3 ? sum : 0, four: max >= 4 ? sum : 0, fullHouse: c.includes(3) && c.includes(2) ? 25 : 0,
-            smallStraight: run(4) ? 30 : 0, largeStraight: run(5) ? 40 : 0, fiver: max === 5 ? 50 : 0, chance: sum
-        };
-        return Object.fromEntries(Object.entries(all).filter(([id]) => self.sheet[id] === null));
-    }
-
     return {
         update(newState) {
             state = newState;
             if (!state) return;
             root.dataset.phase = state.phase;
-            state.potentials = computePotentials();
             renderTop();
             renderSheet();
             renderLog();

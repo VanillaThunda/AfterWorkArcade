@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 9, "9 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 10, "10 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 9`, "9 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 10`, "10 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -1103,6 +1103,90 @@ await test("Host beendet Turmwacht → zurück in der Lobby", async () => {
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".tw")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".tw")`, "Spiel weg bei Anna");
+});
+
+section("Fünf-Würfel-Poker");
+
+/** Mini-Würfel in der Spalte eines Spielers (nach Name). */
+const columnDice = (page, name) => page.eval(`
+    const th = [...document.querySelectorAll(".wp-col")].find(c => c.querySelector(".wp-col-name").textContent === ${JSON.stringify(name)});
+    return th ? [...th.querySelectorAll(".wp-mini")].map(d => ({ blank: d.classList.contains("wp-blank"), held: d.classList.contains("wp-held") })) : null;`);
+
+await test("Setup: Host stellt Bots ein und startet", async () => {
+    await startGame(anna, "wuerfelpoker");
+    await anna.waitFor(`document.querySelector('.wp[data-phase="setup"] .wp-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector('.wp[data-phase="setup"]')`, "Setup bei Ben");
+    assert.equal(await ben.eval(`return document.querySelector(".wp-start") === null;`), true, "Ben hat keinen Start-Button");
+    await anna.eval(`const s = document.querySelector(".wp-bots"); s.value = "1"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".wp-card").textContent.includes("Bots: 1")`, "Ben sieht 1 Bot");
+    await recordActions(anna);
+    await anna.click(".wp-start");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.wp[data-phase="playing"] .wp-roll')`, "Partie läuft");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".wp-col").length;`), 3, "drei Spalten (Anna, Ben, Bot)");
+});
+await test("Würfeln, Halten, Eintragen – die anderen sehen live mit", async () => {
+    await anna.click(".wp-roll");
+    await anna.waitFor(`document.querySelectorAll(".wp-felt .wp-die:not(.wp-blank)").length === 5`, "fünf Würfel liegen");
+    await anna.waitFor(`document.querySelectorAll(".wp-potential").length === 13`, "mögliche Punkte für alle Felder");
+    let dice = null;
+    for (let i = 0; i < 20 && !(dice && dice.every(d => !d.blank)); i++) {
+        dice = await columnDice(ben, "Anna");
+        await sleep(100);
+    }
+    assert.ok(dice.every(d => !d.blank), "Ben sieht Annas Würfel");
+    await anna.click('.wp-felt .wp-die[data-index="0"]');
+    await anna.waitFor(`document.querySelector('.wp-felt .wp-die[data-index="0"]').classList.contains("wp-held")`, "Würfel gehalten");
+    for (let i = 0; i < 20 && !(dice && dice[0].held); i++) {
+        dice = await columnDice(ben, "Anna");
+        await sleep(100);
+    }
+    assert.equal(dice[0].held, true, "Ben sieht den gehaltenen Würfel");
+    await anna.eval(`document.activeElement?.blur();`);
+    await anna.press("r");
+    await anna.waitFor(`document.querySelector(".wp-status").textContent.includes("Wurf 2/3")`, "zweiter Wurf per Taste R");
+    assert.equal(await anna.eval(`return document.querySelector('.wp-felt .wp-die[data-index="0"]').classList.contains("wp-held");`), true, "bleibt gehalten");
+    await anna.screenshot("34-wuerfelpoker.png");
+    await anna.click('.wp-potential[data-category="chance"]');
+    await anna.waitFor(`document.querySelector(".wp-status").textContent.includes("Feld 2/13")`, "Feld eingetragen, nächster Zug");
+    assert.deepEqual(await anna.eval(`return window.__actions.map(a => a.type);`), ["start", "roll", "hold", "roll", "score"]);
+    assert.equal(await anna.eval(`return document.querySelectorAll(".wp-potential").length;`), 0, "keine Vorschläge vor dem Wurf");
+    await ben.waitFor(`[...document.querySelectorAll(".wp-col")].some(c => c.querySelector(".wp-col-name").textContent.startsWith("🤖")
+        && !c.querySelector(".wp-col-info").textContent.endsWith("Wurf 0"))`, "Bot würfelt", 8000);
+});
+await test("Fünf-Würfel-Poker im Dark-Mode", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".wp-sheet") < 60, "Punktzettel dunkel");
+    await ben.screenshot("35-wuerfelpoker-dunkel.png");
+    await setTheme(ben, "light");
+});
+await test("Host beendet Fünf-Würfel-Poker → zurück in der Lobby", async () => {
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Anna");
+});
+await test("Nacheinander: Name und Würfel des Aktiven auf dem Tisch, danach ist Ben dran", async () => {
+    await startGame(anna, "wuerfelpoker");
+    await anna.waitFor(`document.querySelector('.wp[data-phase="setup"] .wp-mode')`, "Modus-Auswahl");
+    assert.ok(await anna.eval(`return document.querySelector(".wp-legend").textContent.includes("über mehrere Würfe");`), "Legende erklärt Straßen");
+    await anna.eval(`const s = document.querySelector(".wp-mode"); s.value = "nacheinander"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".wp-card")?.textContent.includes("reihum")`, "Ben sieht den Modus");
+    await anna.eval(`const s = document.querySelector(".wp-bots"); s.value = "0"; s.dispatchEvent(new Event("change"));`);
+    await ben.waitFor(`document.querySelector(".wp-card")?.textContent.includes("Bots: 0")`, "keine Bots");
+    await anna.click(".wp-start");
+    await anna.waitFor(`document.querySelector(".wp-player")?.textContent === "Du bist dran!"`, "Anna ist dran");
+    await ben.waitFor(`document.querySelector(".wp-player")?.textContent === "Anna ist dran"`, "Ben sieht, wer dran ist");
+    assert.equal(await ben.eval(`return document.querySelector(".wp-roll").hidden;`), true, "Ben hat keinen Würfeln-Knopf");
+    assert.equal(await ben.eval(`return [...document.querySelectorAll(".wp-mini-dice")].every(d => d.hidden);`), true, "keine Mini-Würfel im Zettel");
+    await anna.click(".wp-roll");
+    await ben.waitFor(`document.querySelectorAll(".wp-felt .wp-die:not(.wp-blank)").length === 5`, "Ben sieht Annas Würfel auf dem Tisch");
+    await ben.screenshot("36-wuerfelpoker-nacheinander.png");
+    await anna.waitFor(`document.querySelector('.wp-potential[data-category="chance"]')`, "Vorschlag Chance");
+    await anna.click('.wp-potential[data-category="chance"]');
+    await ben.waitFor(`document.querySelector(".wp-player")?.textContent === "Du bist dran!"`, "jetzt ist Ben dran");
+    await anna.waitFor(`document.querySelector(".wp-player")?.textContent === "Ben ist dran"`, "Anna wartet");
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Ben");
 });
 
 section("Host-Wechsel und private Lobbys");

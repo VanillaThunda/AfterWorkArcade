@@ -25,6 +25,7 @@ Port und Adresse lassen sich über `PORT` und `HOST` ändern.
 |---|---|---|
 | **Artillerie-Duell** | rundenbasiert, 1–6 + Bots | Alle zielen gleichzeitig mit Winkel und Kraft, dann fliegen die Granaten – Wind, zerstörbares Gelände, drei Waffen. |
 | **Bomben-Labyrinth** | Echtzeit, 1–8 + Bots | Bomben legen, Kisten sprengen, Power-ups sammeln – wer zuletzt steht, gewinnt. |
+| **Fünf-Würfel-Poker** | Würfelspiel, 1–8 + Bots | Fünf Würfel, drei Würfe, dreizehn Felder – alle gleichzeitig oder reihum. |
 | **Feierabend-Fäuste** | Koop-Echtzeit, 1–4 + Bots | Prügelspiel im Seitenscroller: drei Abschnitte, Gegnerwellen und ein Bosskampf. |
 | **Eroberungs-Würfel** | Hilfsmittel, 1–8 | Würfelhelfer für Brettspiel-Abende mit automatischer Kampfauswertung. |
 | **Lichtrenner** | Echtzeit, 1–8 + Bots | Alle fahren gleichzeitig und ziehen eine Leuchtspur – nicht dagegen fahren. |

@@ -1,0 +1,230 @@
+/*
+ * Fünf-Würfel-Poker – Styles.
+ * Alle Klassen beginnen mit "wp-". Tisch (Filz) und Würfel behalten in beiden
+ * Designs ihre Farben; Punktzettel, Karten und Log nutzen die Theme-Variablen.
+ * Würfel und Wurf-Animation sind aus Schocken übernommen.
+ */
+
+.wp-root { container-type: inline-size; }
+
+.wp {
+    display: grid;
+    gap: 12px;
+    --wp-felt: #1f6b45;
+    --wp-felt-dark: #13452c;
+    --wp-gold: #f4c542;
+    --wp-me-bg: #fff8dc;
+    --wp-potential: #8a8a8a;
+    --wp-timer-track: rgba(0, 0, 0, 0.25);
+}
+:root[data-theme="dark"] .wp {
+    --wp-me-bg: #3a3320;
+    --wp-potential: #9aa0a6;
+}
+
+.wp-muted { color: var(--color-muted, #666); font-size: 13px; }
+
+/* --- Tisch ------------------------------------------------------------------ */
+.wp-felt {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    padding: 14px;
+    border-radius: 14px;
+    border: 6px solid #6b4226;
+    background: radial-gradient(ellipse at center, var(--wp-felt), var(--wp-felt-dark));
+    color: #f3f3f3;
+    box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.45);
+}
+.wp-player {
+    font-weight: 700;
+    font-size: 18px;
+    padding: 2px 14px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.25);
+}
+.wp-player::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    border-radius: 50%;
+    vertical-align: 1px;
+    background: var(--wp-color, transparent);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.7);
+}
+.wp-player[hidden] { display: none; }
+.wp-roll[hidden] { display: none; }
+.wp-status { font-weight: 700; font-size: 15px; text-align: center; }
+.wp-hint { margin: 0; font-size: 13px; opacity: 0.85; text-align: center; min-height: 1.2em; }
+.wp-dice { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; padding-top: 8px; }
+.wp-controls { display: grid; gap: 6px; width: min(320px, 100%); }
+.wp-roll { font-weight: 700; font-size: 16px; padding: 10px 16px; }
+.wp-timer-slot { min-height: 4px; }
+
+/* --- Würfel ----------------------------------------------------------------- */
+.wp-die {
+    --wp-size: 58px;
+    width: var(--wp-size);
+    height: var(--wp-size);
+    padding: calc(var(--wp-size) * 0.13);
+    box-sizing: border-box;
+    display: grid;
+    grid-template: repeat(3, 1fr) / repeat(3, 1fr);
+    place-items: center;
+    border-radius: calc(var(--wp-size) * 0.18);
+    background: linear-gradient(145deg, #ffffff, #e6e6e0);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45), inset 0 -2px 0 rgba(0, 0, 0, 0.08);
+    user-select: none;
+    transition: transform 0.12s;
+}
+.wp-die i { width: 72%; height: 72%; border-radius: 50%; background: #1d1d1d; }
+.wp-die.wp-blank { background: linear-gradient(145deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.15)); box-shadow: none; }
+.wp-die.wp-clickable { cursor: pointer; }
+.wp-die.wp-clickable:hover { transform: translateY(-3px); }
+.wp-die.wp-held { transform: translateY(-8px); outline: 3px solid var(--wp-gold); outline-offset: 2px; }
+.wp-die:focus-visible { outline: 3px solid #4da3ff; outline-offset: 2px; }
+.wp-die.wp-mini { --wp-size: 20px; padding: 3px; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); border: 1px solid rgba(0, 0, 0, 0.15); }
+.wp-die.wp-mini.wp-blank { background: var(--color-border, #ddd); border-color: transparent; }
+.wp-die.wp-mini.wp-held { transform: translateY(-3px); outline-width: 2px; outline-offset: 1px; }
+
+.wp-die.wp-rolling { animation: wp-tumble 0.8s cubic-bezier(0.3, 0.7, 0.4, 1) backwards; }
+@keyframes wp-tumble {
+    0%   { transform: translateY(0) rotate(0) scale(1); }
+    20%  { transform: translateY(-55%) rotate(-160deg) scale(1.08); }
+    40%  { transform: translateY(0) rotate(-300deg) scale(0.95, 1.05); }
+    60%  { transform: translateY(-25%) rotate(-330deg) scale(1.04); }
+    80%  { transform: translateY(0) rotate(-355deg) scale(1.02, 0.98); }
+    100% { transform: translateY(0) rotate(-360deg); }
+}
+
+/* --- Zeitbalken ------------------------------------------------------------- */
+.wp-timer { height: 4px; border-radius: 2px; background: var(--wp-timer-track); overflow: hidden; }
+.wp-timer-fill {
+    height: 100%;
+    background: var(--wp-gold);
+    transform-origin: left;
+    animation-name: wp-timer;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+}
+@keyframes wp-timer { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* --- Karten (Setup, Ergebnis) ---------------------------------------------- */
+.wp-card {
+    padding: 16px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    text-align: center;
+}
+.wp-card h3 { margin: 0 0 6px; }
+.wp-card p { margin: 6px 0; font-size: 14px; }
+.wp-setup { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 10px 0; }
+.wp-setup label { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; }
+.wp-start { font-weight: 700; }
+
+/* Ergebnis: Tabelle zentriert, Button darunter */
+.wp-placements { margin: 8px auto 12px; border-collapse: collapse; font-size: 13px; text-align: left; }
+.wp-placements th, .wp-placements td { padding: 3px 8px; border-bottom: 1px solid var(--color-border, #ddd); }
+.wp-placements th { font-size: 12px; color: var(--color-muted, #666); }
+.wp-placements tr.is-me td { font-weight: 700; }
+.wp-num { text-align: right; font-variant-numeric: tabular-nums; }
+.wp-total { font-weight: 700; }
+.wp-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: middle; }
+
+/* --- Punktzettel ------------------------------------------------------------ */
+.wp-sheet-wrap { overflow-x: auto; }
+.wp-sheet {
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 0 auto;
+    font-size: 13px;
+    background: var(--color-surface, #fff);
+    color: var(--color-text, #222);
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 10px;
+}
+.wp-sheet th, .wp-sheet td {
+    padding: 3px 8px;
+    border-bottom: 1px solid var(--color-border, #ddd);
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+    min-width: 64px;
+    height: 24px;
+}
+.wp-sheet .wp-label {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    min-width: 0;
+    text-align: left;
+    white-space: nowrap;
+    background: var(--color-surface, #fff);
+    font-weight: 600;
+}
+.wp-col { vertical-align: top; border-top: 4px solid var(--wp-color, #888); }
+.wp-col-name { font-weight: 700; max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 auto; }
+.wp-col-info { font-size: 11px; font-weight: 400; color: var(--color-muted, #666); white-space: nowrap; }
+.wp-mini-dice { display: flex; gap: 2px; justify-content: center; margin: 5px 0 3px; }
+.wp-mini-dice[hidden] { display: none; }
+.wp-sheet .is-me { background: var(--wp-me-bg); }
+.wp-col.is-current .wp-col-info { color: var(--color-text, #222); font-weight: 700; }
+.wp-col.is-current { box-shadow: inset 0 -3px 0 var(--wp-color, #888); }
+.wp-sum th, .wp-sum td { font-size: 12px; color: var(--color-muted, #666); background-clip: padding-box; }
+.wp-sum .wp-label { font-weight: 400; }
+.wp-total-row th, .wp-total-row td { font-size: 15px; font-weight: 700; color: var(--color-text, #222); border-bottom: none; }
+.wp-cell.is-zero-filled { color: var(--color-muted, #666); }
+
+.wp-potential {
+    min-height: 0;
+    width: 100%;
+    padding: 1px 6px;
+    font-size: 13px;
+    border: 1px dashed var(--wp-potential);
+    background: transparent;
+    color: var(--wp-potential);
+    font-variant-numeric: tabular-nums;
+}
+.wp-potential:hover { border-style: solid; color: var(--color-text, #222); }
+.wp-potential.is-zero { opacity: 0.75; }
+.wp-potential.is-confirm { border-style: solid; border-color: #c62828; color: #c62828; opacity: 1; }
+
+.wp-log {
+    margin: 0;
+    padding: 6px 10px 6px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    font-size: 13px;
+    color: var(--color-muted, #666);
+    max-height: 120px;
+    overflow: auto;
+}
+.wp-log li:first-child { color: var(--color-text, #222); }
+
+/* --- Legende ------------------------------------------------------------------ */
+.wp-legend {
+    padding: 6px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border, #ddd);
+    background: var(--color-surface, #fff);
+    color: var(--color-muted, #666);
+    font-size: 12px;
+}
+.wp-legend summary { cursor: pointer; font-weight: 600; color: var(--color-text, #222); }
+.wp-legend dl { display: grid; grid-template-columns: max-content 1fr; gap: 3px 12px; margin: 6px 0 2px; }
+.wp-legend dt { font-weight: 600; color: var(--color-text, #222); }
+.wp-legend dd { margin: 0; }
+@container (max-width: 520px) {
+    .wp-legend dl { grid-template-columns: 1fr; gap: 0; }
+    .wp-legend dd { margin-bottom: 4px; }
+}
+
+@container (max-width: 520px) {
+    .wp-die { --wp-size: 48px; }
+    .wp-dice { gap: 8px; }
+    .wp-sheet th, .wp-sheet td { min-width: 52px; padding: 3px 5px; }
+}

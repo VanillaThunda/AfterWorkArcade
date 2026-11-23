@@ -8,6 +8,24 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.14.0] – 2026-11-23
+
+### Hinzugefügt
+- **Neues Spiel: Fünf-Würfel-Poker** – Würfelspiel im Yacht-Genre für 1–8 Teilnehmer, freie Plätze mit Bots.
+  - Fünf Würfel, bis zu drei Würfe pro Zug, 13 Felder: Einser bis Sechser (+35 Bonus ab 63), Dreier- und Viererpasch, Full House, Kleine und Große Straße, Fünferpasch, Chance. Jeder weitere Fünferpasch bringt +50.
+  - Der Host wählt den Modus: **alle gleichzeitig** (jeder auf seinem Zettel, die Würfel der anderen live als Mini-Würfel im Punktzettel) oder **nacheinander** (der Tisch zeigt für alle Name und Würfel dessen, der dran ist).
+  - Würfel per Klick oder Tasten 1–5 halten, Leertaste/R würfelt; mögliche Punkte erscheinen als Knöpfe im eigenen Zettel, eine 0 muss bestätigt werden.
+  - 90 s pro Feld, danach wird automatisch gewürfelt und eingetragen.
+  - Bots in drei Stärken; „schwer“ rechnet für jedes Haltemuster den Erwartungswert.
+  - Legende unter dem Punktzettel erklärt alle Felder.
+- README: Fünf-Würfel-Poker in der Spieleliste.
+- Test `tests/wuerfelpoker.test.mjs` (`npm run test:wuerfelpoker`). Er läuft auch beim Merge nach main mit.
+
+### Geändert
+- Roadmap: Fünf-Würfel-Poker umgesetzt und aus den Spielideen entfernt.
+
+---
+
 ## [0.13.0] – 2026-11-22
 
 ### Hinzugefügt

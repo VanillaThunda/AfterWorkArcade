@@ -15,6 +15,7 @@
         "test:artillerie": "node tests/artillerie.test.mjs",
         "test:feierabend-faeuste": "node tests/feierabend-faeuste.test.mjs",
         "test:turmwacht": "node tests/turmwacht.test.mjs",
+        "test:wuerfelpoker": "node tests/wuerfelpoker.test.mjs",
         "test:reconnect": "node tests/reconnect.test.mjs",
         "test:ui": "node tests/ui.test.mjs",
         "test:git": "node tests/git.test.mjs",

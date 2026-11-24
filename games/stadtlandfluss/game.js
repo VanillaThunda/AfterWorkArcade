@@ -180,7 +180,8 @@ function finishReview(state, now) {
     }
     state.round.scored = true;
     const best = Object.entries(totals).sort((a, b) => b[1] - a[1])[0];
-    if (best) addLog(state, `Runde ${state.round.number} (${state.round.letter}): Bestes Ergebnis ${state.players.find(p => p.id === best[0]).name} mit ${best[1]} Punkten.`);
+    if (best && best[1] > 0) addLog(state, `Runde ${state.round.number} (${state.round.letter}): Bestes Ergebnis ${state.players.find(p => p.id === best[0]).name} mit ${best[1]} Punkten.`);
+    else addLog(state, `Runde ${state.round.number} (${state.round.letter}): keine Punkte.`);
     if (state.round.number >= state.settings.rounds) finishMatch(state, "finished");
     else startRound(state, now);
 }

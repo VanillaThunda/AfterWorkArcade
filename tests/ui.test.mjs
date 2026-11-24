@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 11, "11 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 12, "12 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 11`, "11 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 12`, "12 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -1252,6 +1252,59 @@ await test("Stadt-Land-Fluss im Dark-Mode, Host beendet", async () => {
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".slf")`, "Spiel weg bei Ben");
     await anna.waitFor(`!document.querySelector(".slf")`, "Spiel weg bei Anna");
+});
+
+section("Skizzen-Raten");
+
+let srWord = "";
+await test("Start: Anna zeichnet zuerst und wählt aus drei Begriffen", async () => {
+    await startGame(anna, "skizzenraten");
+    await anna.waitFor(`document.querySelector('.sr[data-phase="setup"] .sr-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector(".sr-summary")`, "Ben sieht die Einstellungen");
+    await anna.click(".sr-start");
+    await anna.waitFor(`document.querySelectorAll(".sr-choice").length === 3`, "drei Vorschläge");
+    await ben.waitFor(`document.querySelector(".sr-overlay h3")?.textContent.includes("Anna wählt")`, "Ben wartet auf die Wahl");
+    assert.equal(await ben.eval(`return document.querySelectorAll(".sr-choice").length;`), 0, "Ben sieht keine Vorschläge");
+    await anna.click('.sr-choice[data-index="0"]');
+    await anna.waitFor(`document.querySelector('.sr[data-phase="drawing"]') && document.querySelector(".sr-tools:not([hidden])")`, "Anna zeichnet mit Werkzeugen");
+    srWord = await anna.eval(`return document.querySelector(".sr-word").textContent;`);
+    assert.ok(srWord.length >= 2);
+    await ben.waitFor(`document.querySelector(".sr-word.is-hint")`, "Ben sieht nur den Hinweis");
+    assert.ok(!(await ben.eval(`return document.querySelector(".sr-word").textContent;`)).includes(srWord), "Begriff bleibt verdeckt");
+});
+await test("Zeichnen per Pointer: Ben sieht die Striche", async () => {
+    await anna.eval(`
+        const c = document.querySelector(".sr-canvas");
+        const r = c.getBoundingClientRect();
+        const ev = (type, fx, fy) => c.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+        ev("pointerdown", 0.2, 0.5);
+        for (let i = 1; i <= 20; i++) ev("pointermove", 0.2 + i * 0.03, 0.5 - Math.sin(i / 3) * 0.2);
+        ev("pointerup", 0.8, 0.5);
+        ev("pointerdown", 0.5, 0.2); ev("pointermove", 0.5, 0.8); ev("pointerup", 0.5, 0.8);`);
+    await ben.waitFor(`Number(document.querySelector(".sr-canvas").dataset.strokes) === 2`, "zwei Striche bei Ben");
+    await anna.click(".sr-undo");
+    await ben.waitFor(`Number(document.querySelector(".sr-canvas").dataset.strokes) === 1`, "Rückgängig kommt an");
+});
+await test("Raten: falscher Tipp für alle sichtbar, richtiger Tipp → Auflösung, Ben zeichnet", async () => {
+    await ben.eval(`const i = document.querySelector(".sr-guess-input"); i.value = "Quatschwort"; document.querySelector(".sr-guess-form").requestSubmit();`);
+    await anna.waitFor(`document.querySelector(".sr-guess-list").textContent.includes("Quatschwort")`, "Anna sieht den falschen Tipp");
+    await ben.screenshot("39-skizzenraten.png");
+    await ben.eval(`const i = document.querySelector(".sr-guess-input"); i.value = ${JSON.stringify(srWord.toLowerCase())}; document.querySelector(".sr-guess-form").requestSubmit();`);
+    await anna.waitFor(`document.querySelector(".sr-overlay h3")?.textContent === ${JSON.stringify(`Der Begriff war: ${srWord}`)}`, "Auflösung bei Anna");
+    assert.ok(!(await anna.eval(`return document.querySelector(".sr-guess-list").textContent;`)).toLowerCase().includes(srWord.toLowerCase()), "richtiger Tipp bleibt geheim");
+    assert.ok(await ben.eval(`return [...document.querySelectorAll(".sr-score-list li")].find(li => li.dataset.player && li.textContent.includes("Ben")).querySelector(".sr-mark.is-hit") !== null;`), "Ben ist als erraten markiert");
+    await ben.waitFor(`document.querySelectorAll(".sr-choice").length === 3`, "Ben ist als Nächster dran", 10000);
+});
+await test("Skizzen-Raten im Dark-Mode, Host beendet", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".sr-scores") < 60, "Punkte-Kasten dunkel");
+    assert.ok(await brightness(ben, ".sr-canvas") > 200, "Zeichenfläche bleibt weiß");
+    await ben.screenshot("40-skizzenraten-dunkel.png");
+    await setTheme(ben, "light");
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".sr")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".sr")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

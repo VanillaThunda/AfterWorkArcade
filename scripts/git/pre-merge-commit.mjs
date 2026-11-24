@@ -18,7 +18,7 @@ const { version, errors } = checkWorktree(root);
 if (errors.length > 0) fail(`Merge nach main abgebrochen – Release ${version} ist nicht vollständig:`, errors);
 
 console.log(`Merge nach main (v${version}): schnelle Tests …`);
-for (const file of ["api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs", "maexchen.test.mjs", "lichtrenner.test.mjs", "bombenlabyrinth.test.mjs", "artillerie.test.mjs", "feierabend-faeuste.test.mjs", "turmwacht.test.mjs", "wuerfelpoker.test.mjs", "stadtlandfluss.test.mjs"]) {
+for (const file of ["api.test.mjs", "revierkampf.test.mjs", "schocken.test.mjs", "maexchen.test.mjs", "lichtrenner.test.mjs", "bombenlabyrinth.test.mjs", "artillerie.test.mjs", "feierabend-faeuste.test.mjs", "turmwacht.test.mjs", "wuerfelpoker.test.mjs", "stadtlandfluss.test.mjs", "skizzenraten.test.mjs"]) {
     const result = spawnSync(process.execPath, [path.join(root, "tests", file)], { cwd: root, encoding: "utf8" });
     if (result.status !== 0) {
         process.stdout.write(result.stdout);

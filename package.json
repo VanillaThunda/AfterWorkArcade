@@ -17,6 +17,7 @@
         "test:turmwacht": "node tests/turmwacht.test.mjs",
         "test:wuerfelpoker": "node tests/wuerfelpoker.test.mjs",
         "test:stadtlandfluss": "node tests/stadtlandfluss.test.mjs",
+        "test:skizzenraten": "node tests/skizzenraten.test.mjs",
         "test:reconnect": "node tests/reconnect.test.mjs",
         "test:ui": "node tests/ui.test.mjs",
         "test:git": "node tests/git.test.mjs",

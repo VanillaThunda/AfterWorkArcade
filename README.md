@@ -32,6 +32,8 @@ Port und Adresse lassen sich über `PORT` und `HOST` ändern.
 | **Mäxchen** | Würfelspiel, 1–10 + Bots | Verdeckt würfeln, höher ansagen, bluffen oder anzweifeln. |
 | **Revierkampf** | Echtzeit-Strategie, ab 1 + Bots | Revier aufbauen und Nachbarn erobern, bis eine Seite 70 % des Landes hält. |
 | **Schocken** | Würfelspiel, 1–8 + Bots | Das Kneipen-Würfelspiel mit Bechern, Deckeln, Hälften und Finale. |
+| **Skizzen-Raten** | Partyspiel, 2–8 | Reihum zeichnet einer einen Begriff, die anderen raten um die Wette. |
+| **Stadt-Land-Fluss** | Partyspiel, 2–8 | Buchstabe ziehen, Kategorien füllen, Stopp rufen – danach gemeinsam anzweifeln. |
 | **Turmwacht** | Koop-Tower-Defense, 1–4 | Türme am zufälligen Pfad bauen und upgraden, Gold teilen und verschenken – 10/20/30 Wellen oder endlos. |
 
 Alle Spiele sind eigene Umsetzungen bekannter Genres bzw. traditioneller Würfelspiele – mit eigenem

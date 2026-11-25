@@ -1,6 +1,6 @@
 # AfterWork Arcade – Dokumentation
 
-**Version:** 0.14.0 (siehe `package.json` und `changelog.md`)
+**Version:** 0.15.0 (siehe `package.json` und `changelog.md`)
 
 AfterWork Arcade ist ein Web-basiertes Lobby-System für das lokale Netzwerk. Mitspieler rufen
 eine Adresse im Browser auf, wählen einen Usernamen, erstellen oder betreten Lobbys, chatten
@@ -8,8 +8,8 @@ und spielen gemeinsam Spiele bzw. nutzen Tools – aktuell den **Eroberungs-Wür
 Echtzeit-Strategiespiel **Revierkampf**, das Kneipen-Würfelspiel **Schocken**, das
 Bluff-Würfelspiel **Mäxchen**, das Echtzeit-Lichtspurspiel **Lichtrenner**, das
 Echtzeit-Bombenspiel **Bomben-Labyrinth**, das rundenbasierte **Artillerie-Duell**, das
-Koop-Prügelspiel **Feierabend-Fäuste**, das Koop-Tower-Defense **Turmwacht** und das
-Würfelspiel **Fünf-Würfel-Poker**.
+Koop-Prügelspiel **Feierabend-Fäuste**, das Koop-Tower-Defense **Turmwacht**, das
+Würfelspiel **Fünf-Würfel-Poker** sowie die Partyspiele **Stadt-Land-Fluss** und **Skizzen-Raten**.
 
 ---
 
@@ -22,7 +22,7 @@ Würfelspiel **Fünf-Würfel-Poker**.
 5. [Kommunikation: API und Events](#5-kommunikation-api-und-events)
 6. [Lobby-Regeln](#6-lobby-regeln)
 7. [Neues Spiel hinzufügen](#7-neues-spiel-hinzufügen)
-8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste-turmwacht-fünf-würfel-poker)
+8. [Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker, Stadt-Land-Fluss, Skizzen-Raten](#8-spiele-eroberungs-würfel-revierkampf-schocken-mäxchen-lichtrenner-bomben-labyrinth-artillerie-duell-feierabend-fäuste-turmwacht-fünf-würfel-poker-stadt-land-fluss-skizzen-raten)
 9. [Konfiguration](#9-konfiguration)
 10. [Grenzen und Sicherheit](#10-grenzen-und-sicherheit)
 11. [Versionierung mit Git](#11-versionierung-mit-git)
@@ -210,11 +210,21 @@ main/  (bzw. dev/ – gleicher Aufbau, siehe Abschnitt 11)
 │  │  ├─ data.js           Daten: Türme und Stufen, Gegner, Schwierigkeit, Wellen-Formel
 │  │  ├─ sim.js            Gegner-Bewegung, Zielwahl, Schüsse, Panzerung, Effekte
 │  │  └─ public/           Browser-Teil (client.js, render.js: Karte, Türme, Gegner, style.css)
-│  └─ wuerfelpoker/
-│     ├─ game.js           Server-Teil (Modus gleichzeitig/nacheinander, Züge, Zeitlimit, Bot-Takt, Wertung, viewFor)
-│     ├─ scoring.js        Felder, Punkte, Bonus (reine Funktionen)
-│     ├─ bots.js           Bot-Entscheidungen je Stärke (Erwartungswert-Tabellen für „schwer“)
-│     └─ public/           Browser-Teil (Würfeltisch, Punktzettel, Legende, client.js, style.css)
+│  ├─ wuerfelpoker/
+│  │  ├─ game.js           Server-Teil (Modus gleichzeitig/nacheinander, Züge, Zeitlimit, Bot-Takt, Wertung, viewFor)
+│  │  ├─ scoring.js        Felder, Punkte, Bonus (reine Funktionen)
+│  │  ├─ bots.js           Bot-Entscheidungen je Stärke (Erwartungswert-Tabellen für „schwer“)
+│  │  └─ public/           Browser-Teil (Würfeltisch, Punktzettel, Legende, client.js, style.css)
+│  ├─ stadtlandfluss/
+│  │  ├─ game.js           Server-Teil (Runden, Stopp/Nachfrist, Anzweifeln, Auswertung, viewFor)
+│  │  ├─ rules.js          Normalisieren, Anfangsbuchstabe, Mehrheit, Punkte (reine Funktionen)
+│  │  ├─ data.js           Kategorien-Vorauswahl, Buchstaben, Grenzen, Punkte
+│  │  └─ public/           Browser-Teil (Setup mit Chips, Schreibblatt, Auswertung, client.js, style.css)
+│  └─ skizzenraten/
+│     ├─ game.js           Server-Teil (Wort-Wahl, Striche, Raten, Hinweise, Punkte, Reihenfolge, viewFor)
+│     ├─ rules.js          Normalisieren, „Fast!“, Hinweise, Punkte (reine Funktionen)
+│     ├─ words.js          eigene Begriffsliste (leicht/mittel/schwer)
+│     └─ public/           Browser-Teil (Zeichenfläche, Werkzeuge, Tipp-Liste, client.js, style.css)
 └─ public/                 Browser-Dateien des Lobby-Systems
    ├─ index.html
    ├─ css/style.css
@@ -442,7 +452,7 @@ Wichtig:
 
 ---
 
-## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker
+## 8. Spiele: Eroberungs-Würfel, Revierkampf, Schocken, Mäxchen, Lichtrenner, Bomben-Labyrinth, Artillerie-Duell, Feierabend-Fäuste, Turmwacht, Fünf-Würfel-Poker, Stadt-Land-Fluss, Skizzen-Raten
 
 ### 8.1 Eroberungs-Würfel
 
@@ -1116,6 +1126,112 @@ Aktionen (`POST /api/game/action`):
 Feld-Kennungen: `ones` … `sixes`, `three`, `four`, `fullHouse`, `smallStraight`, `largeStraight`,
 `fiver`, `chance`.
 
+### 8.11 Stadt-Land-Fluss
+
+Partyspiel für 2–8 Spieler, ohne Bots (sie bräuchten Wortlisten). Wer nach dem Start beitritt,
+spielt ab der nächsten Runde mit 0 Punkten mit.
+
+**Vorbereitung:** Der Host wählt 3–10 Kategorien aus einer Vorauswahl (Stadt, Land, Fluss, Tier,
+Pflanze, Beruf, Vorname, Essen & Trinken, Sportart, Hobby, Gegenstand im Haushalt, Musikinstrument,
+Körperteil, Film oder Serie, Ausrede fürs Zuspätkommen) und kann eigene ergänzen (höchstens 24
+Zeichen, Doppelte werden entfernt). Dazu 3 / 5 / 8 Runden und 60 / 90 / 120 / 180 s pro Runde.
+
+**Ablauf einer Runde:** `countdown` (3 s, Buchstabe rollt) → `writing` → `grace` → `review`.
+- Buchstaben: A–Z ohne C, Q, X, Y, innerhalb einer Partie ohne Wiederholung.
+- **Schreiben:** ein Feld je Kategorie. Der Client sendet Antworten entprellt (400 ms) und beim
+  Verlassen eines Feldes – so überstehen sie einen Reload. Fremde Antworten bleiben verdeckt, sichtbar
+  ist nur der Fortschritt (●●○).
+- **Stopp:** Wer alle Felder ausgefüllt hat, darf Stopp rufen. Danach bleiben allen noch 3 s
+  (`grace`), dann sind die Antworten gesperrt. Ohne Stopp endet die Runde mit Ablauf der Zeit.
+- **Auswertung:** Alle Antworten liegen offen, eine Karte pro Kategorie.
+  - Automatisch ungültig: leer oder falscher Anfangsbuchstabe (Ä/Ö/Ü zählen als A/O/U, Akzente egal).
+  - Fremde Antworten lassen sich per 👎 anzweifeln (nochmal klicken nimmt es zurück). Zweifeln **mehr
+    als die Hälfte der anderen**, zählt die Antwort nicht (bei 2 Spielern reicht ein Zweifel).
+  - Jeder Zweifel setzt alle „Fertig“-Meldungen zurück.
+  - Die Auswertung endet, wenn alle „Fertig“ gedrückt haben, nach 120 s oder per „Auswertung beenden“ (Host).
+
+**Punkte je Kategorie:** 20, wenn die eigene Antwort die einzige gültige ist; 10 für eine gültige,
+einmalige Antwort; 5, wenn jemand dasselbe hat. „Dasselbe“ wird normalisiert verglichen
+(Groß-/Kleinschreibung, Leer- und Satzzeichen egal, ä = ae, ß = ss).
+
+**Ende:** Nach der letzten Runde Rangliste nach Punkten mit der besten Runde. Wer geht, zählt mit
+Antworten und Zweifeln nicht mehr; ist niemand mehr da, endet die Partie (`aborted`).
+
+**Sicht (`viewFor`):** Beim Schreiben bekommt jeder nur seine eigenen Antworten (`round.mine`) und den
+Fortschritt der anderen (`round.progress`); der Buchstabe ist im Countdown verdeckt. In der Auswertung
+kommen alle Antworten, Zweifel und die Bewertung (`round.evaluation`) dazu.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "categories": ["Stadt", "Land", "Getränk"], "rounds": 5, "roundSeconds": 90 }` | Host, vor dem Start |
+| Start | `{ "type": "start" }` | Host, ab 2 Spielern |
+| Antwort | `{ "type": "answer", "category": 0, "text": "Aachen" }` (Index der Kategorie, höchstens 40 Zeichen) | Spieler, Schreiben und Nachfrist |
+| Stopp | `{ "type": "stop" }` | Spieler mit allen Feldern ausgefüllt |
+| Anzweifeln | `{ "type": "doubt", "playerId": "<userId>", "category": 2 }` (umschalten) | Spieler, Auswertung |
+| Fertig | `{ "type": "ready" }` (umschalten) | Spieler, Auswertung |
+| Auswertung beenden | `{ "type": "end-review" }` | Host, Auswertung |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Spielende |
+
+Regeln stehen in `games/stadtlandfluss/rules.js`, Kategorien und Grenzen in `data.js`.
+
+### 8.12 Skizzen-Raten
+
+Partyspiel für 2–8 Spieler, ohne Bots. Reihum zeichnet einer einen Begriff, die anderen raten über
+ein eigenes Ratefeld (der Lobby-Chat bleibt frei).
+
+**Vorbereitung:** Der Host wählt, wie oft jeder zeichnet (1–3 Durchgänge), die Zeit pro Bild
+(60 / 80 / 100 / 120 s) und die Begriffe (gemischt / leicht / mittel / schwer). Eigene Begriffe
+(höchstens 100, je höchstens 30 Zeichen, durch Komma oder Zeilenumbruch getrennt) kommen dazu; ab 10
+eigenen Begriffen geht auch „nur eigene Begriffe“. Die Liste sieht nur, wer sie eingetragen hat –
+alle anderen nur die Anzahl.
+
+**Begriffe** (`words.js`): eigene Liste mit 410 deutschen Begriffen in drei Stufen, keine Marken oder
+Figuren. Kein Begriff kommt in einer Partie doppelt vor.
+
+**Ablauf eines Bildes:** `choosing` (15 s) → `drawing` → `reveal` (5 s) → nächster Zeichner.
+- Reihenfolge: Spieler-Reihenfolge, der Host zuerst. Wer später beitritt, rät sofort mit und zeichnet
+  im laufenden Durchgang am Ende.
+- **Wort-Wahl:** Der Zeichner wählt aus 3 Vorschlägen; wählt er nicht, nimmt der Server einen.
+- **Zeichnen:** Canvas mit 800 × 500 logischen Einheiten, bleibt auch im Dark-Mode weiß. 9 Farben plus
+  Radierer, Stiftgrößen 4 / 10 / 24, Rückgängig (auch Strg+Z), Leeren mit Bestätigung. Maus, Stift und
+  Touch über Pointer-Events. Der Client zeigt Punkte sofort lokal an und sendet sie gesammelt alle
+  120 ms über eine Warteschlange. Striche werden kompakt gespeichert (`{ id, c, s, p: [x0, y0, …] }`),
+  höchstens 300 Punkte je Aktion und 6000 Punkte je Bild.
+- **Hinweise:** Rater sehen „_ _ _ (Anzahl)“; Leerzeichen und Bindestriche sind sichtbar. Bei 50 % und
+  75 % der Zeit wird je ein Buchstabe aufgedeckt (mindestens 2 bleiben verdeckt).
+- **Raten:** Falsche Tipps erscheinen für alle in der Tipp-Liste (die letzten 30). Richtige Tipps
+  bleiben geheim („Ben hat es erraten!“); wer es erraten hat, sieht den Begriff und rät nicht weiter.
+  Knapp daneben (Tippfehler: Abstand 1, ab 8 Buchstaben 2) gibt ein „Fast!“, das nur der Tippende sieht.
+- Das Bild endet, wenn alle es erraten haben, die Zeit abläuft oder der Host überspringt. Geht der
+  Zeichner, wird sofort aufgelöst.
+
+**Punkte:** Rater je nach Restzeit 100 bis 20 (`max(20, round(100 × Restzeit / Zeichenzeit))`).
+Zeichner bis zu 100, anteilig nach der Zahl der Rater, die es erraten haben.
+
+**Ende:** Nach allen Durchgängen Rangliste nach Punkten. Bleibt weniger als 2 aktive Spieler übrig,
+endet die Partie (`aborted`).
+
+**Sicht (`viewFor`):** Den Begriff sehen nur der Zeichner und wer ihn schon erraten hat (alle erst ab der
+Auflösung), die Vorschläge nur der Zeichner, den „Fast!“-Hinweis (`turn.near`) nur der eigene Rater.
+Interne Listen (benutzte Begriffe) bleiben auf dem Server.
+
+Aktionen (`POST /api/game/action`):
+
+| Aktion | Beispiel | Wer / wann |
+|--------|----------|------------|
+| Einstellungen | `{ "type": "settings", "rounds": 2, "drawSeconds": 80, "difficulty": "gemischt", "customWords": "Zebra, Kaktus", "onlyCustom": false }` | Host, vor dem Start |
+| Start | `{ "type": "start" }` | Host, ab 2 Spielern |
+| Begriff wählen | `{ "type": "choose", "index": 1 }` | Zeichner, Wort-Wahl |
+| Strich | `{ "type": "stroke", "id": 7, "color": 2, "size": 10, "points": [120, 80, 125, 84] }` (gleiche `id` hängt an) | Zeichner, beim Zeichnen |
+| Rückgängig / Leeren | `{ "type": "undo" }`, `{ "type": "clear" }` | Zeichner, beim Zeichnen |
+| Raten | `{ "type": "guess", "text": "Leuchtturm" }` (höchstens 40 Zeichen) | Rater, beim Zeichnen |
+| Überspringen | `{ "type": "skip" }` | Host, Wort-Wahl oder Zeichnen |
+| Neue Partie | `{ "type": "new-match" }` | Host, nach Spielende |
+
+Regeln (Normalisieren, „Fast!“, Hinweise, Punkte) stehen in `games/skizzenraten/rules.js`.
+
 ### Bot-Namen (alle Spiele)
 
 Bots heißen nach zufälligen deutschen Vornamen, mit vorangestelltem 🤖, z. B. „🤖 Lena“.
@@ -1257,10 +1373,12 @@ Server auf Port 3000 stört also nicht.
 | `npm run test:feierabend-faeuste` | `tests/feierabend-faeuste.test.mjs` | ~5 s | Feierabend-Fäuste-Logik direkt: Figurenwahl, Laufen und Kamera, Wellen, Treffer (Reichweite, Tiefe, einmal je Angriff), Kombo, Sprung, Spezial, kein Friendly Fire, Panzerung, Dauer-Festhalten, Angriffs-Tickets, Werfer, Schwierigkeit, Kisten/Essen, K.-o./Aufhelfen/Niederlage, Abschnittswechsel, Boss-Phasen, Wertung, Bot-Mitstreiter (Level auf „leicht“), Verlassen, viewFor |
 | `npm run test:turmwacht` | `tests/turmwacht.test.mjs` | ~2 s | Turmwacht-Logik direkt: Karten-Generator (200 Seeds), neue Karte, Einstellungen, Start/Startgold, Zuschauer ab Spieler 5, Bauen/Upgraden/Verkaufen mit Erstattung, gleich verteiltes Einkommen ohne Rundungsverlust, Schenken, Verlassen, Zielwahl, Kanone/Frost/Blitz/Panzerung, Schaden nach Investition, Bereit/Welle rufen, Leben/Niederlage/Sieg/Endlos, Tempo ×2, Wellen-Formel, Wertung, viewFor, Test-Bauer (leicht/10 Sieg, erster Koloss auf mittel besiegt, Rechenzeit) |
 | `npm run test:wuerfelpoker` | `tests/wuerfelpoker.test.mjs` | ~3 s | Fünf-Würfel-Poker-Logik direkt: Punkte aller Felder mit Grenzfällen, Bonus, Würfeln/Halten/höchstens 3 Würfe, Eintragen/Streichen, Straße über mehrere Würfe, Extra-Fünferpasch, gleichzeitig und nacheinander (Zugfolge, Bots nur im eigenen Zug, Verlassen), Zeitlimit, Bots aller Stufen („schwer“ schlägt „leicht“, Rechenzeit), Wertung, viewFor |
+| `npm run test:stadtlandfluss` | `tests/stadtlandfluss.test.mjs` | < 1 s | Stadt-Land-Fluss-Logik direkt: Normalisieren/Anfangsbuchstabe, Mehrheitsregel, Punkte 20/10/5, Einstellungen, Buchstaben ohne Wiederholung, Antworten/Stopp/Nachfrist/Zeitablauf, verdeckte Antworten (viewFor), Anzweifeln, Fertig/Auswertung beenden, Rundenfolge und Ergebnis, Neuzugang, Verlassen |
+| `npm run test:skizzenraten` | `tests/skizzenraten.test.mjs` | < 1 s | Skizzen-Raten-Logik direkt: Begriffsliste, Normalisieren/„Fast!“/Hinweise/Punkte, Einstellungen und eigene Begriffe, Wort-Wahl (auch automatisch, ohne Wiederholung), Striche mit Grenzen, Rückgängig/Leeren, Raten (öffentlich, privat, Punkte nach Restzeit), Hinweise bei 50/75 %, Reihenfolge, Ergebnis, Überspringen, Neuzugang, Zeichner geht, viewFor |
 | `npm run test:reconnect` | `tests/reconnect.test.mjs` | ~8 s   | Grace-Period: Reload behält die Sitzung, langer Abbruch meldet ab |
-| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Turmwacht (neue Karte, Bauen, Upgraden, Schenken, Bereit), Fünf-Würfel-Poker (Würfeln, Halten per Klick und Taste, Eintragen, Mitspieler sehen live, Modus nacheinander, Legende), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
+| `npm run test:ui`        | `tests/ui.test.mjs`        | ~60 s  | Echte Oberfläche mit zwei Spielern im Browser, inkl. Spielauswahl-Dialog (Kacheln, Vorschaubilder, Auswahl, hell/dunkel), Spielmodus (Andocken/Einklappen), Eroberungs-Würfel, eine Revierkampf-Runde mit Bots, Schocken (Setup-Dialog ohne Scrollen, verdeckte Würfel, Würfelanimation, Aufdecken, „Weiter“), Mäxchen (Wurf nur beim Werfer, Ansage, Anzweifeln), Lichtrenner (Countdown, echte Tastendrücke per CDP, kein Lenken aus dem Chatfeld, kein Scrollen), Bomben-Labyrinth (Taste halten/loslassen, Bombe per Leertaste), Artillerie-Duell (Bot-Stärke, Zielen per Taste, Kraft, Waffe, Feuer frei, Salve, Regler ohne Innenabstand), Feierabend-Fäuste (Figurenwahl, Laufen schräg per Taste halten, Schlag/Sprung/Spezial), Turmwacht (neue Karte, Bauen, Upgraden, Schenken, Bereit), Fünf-Würfel-Poker (Würfeln, Halten per Klick und Taste, Eintragen, Mitspieler sehen live, Modus nacheinander, Legende), Stadt-Land-Fluss (eigene Kategorie, Schreiben mit verdecktem Fortschritt, Stopp, Anzweifeln, Punkte, nächste Runde), Skizzen-Raten (Wort-Wahl, Zeichnen per Pointer, Rückgängig, falscher und richtiger Tipp, Auflösung, Zeichenfläche bleibt im Dark-Mode weiß), Spielauswahl bei kleinem Fenster und in Handygröße, Dark-Mode (Schalter, gemerkt nach Reload, Revierkampf/Schocken dunkel), Mobilansicht und Konsolenfehlern |
 | `npm run test:git`       | `tests/git.test.mjs`       | < 1 s  | Release-Prüfung: Versionsvergleich, fehlender Changelog-Eintrag, falsche Doku-Version, Changelog-Abschnitt für den Tag |
-| `npm run test:all`       | `tests/run-all.mjs`        | ~160 s | alle dreizehn nacheinander |
+| `npm run test:all`       | `tests/run-all.mjs`        | ~180 s | alle fünfzehn nacheinander |
 
 Ausgabe: je Testfall `ok` oder `FAIL` mit Grund, am Ende eine Zusammenfassung.
 Der Exit-Code ist `0`, wenn alles bestanden ist.

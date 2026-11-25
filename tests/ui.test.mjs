@@ -347,9 +347,9 @@ await test("Spielauswahl-Dialog: Kacheln mit Bild, Titel und Beschreibung", asyn
     assert.equal(await ben.visible("#open-game-picker"), false, "Mitspieler sieht den Button nicht");
     await anna.click("#open-game-picker");
     await anna.waitFor(`document.getElementById("game-picker").open`, "Dialog offen");
-    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 10, "10 Spiele zur Auswahl");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".game-tile").length;`), 12, "12 Spiele zur Auswahl");
     await anna.waitFor(`[...document.querySelectorAll(".game-tile img")].every(i => i.complete && i.naturalWidth > 0)
-        && document.querySelectorAll(".game-tile img").length === 10`, "10 Vorschaubilder geladen");
+        && document.querySelectorAll(".game-tile img").length === 12`, "12 Vorschaubilder geladen");
     const tiles = await anna.eval(`return [...document.querySelectorAll(".game-tile")].map(t => ({
         title: t.querySelector(".game-tile-title").textContent,
         description: t.querySelector(".game-tile-description").textContent }));`);
@@ -1187,6 +1187,124 @@ await test("Nacheinander: Name und Würfel des Aktiven auf dem Tisch, danach ist
     await anna.waitFor(`document.querySelector(".wp-player")?.textContent === "Ben ist dran"`, "Anna wartet");
     await anna.click("#end-game-button");
     await ben.waitFor(`!document.querySelector(".wp")`, "Spiel weg bei Ben");
+});
+
+section("Stadt-Land-Fluss");
+
+/** Text in ein Antwortfeld schreiben (Input-Event wie beim Tippen) und das Feld verlassen. */
+const typeAnswer = (page, index, text) => page.eval(`
+    const input = document.querySelector('.slf-input[data-category="${index}"]');
+    input.focus(); input.value = ${JSON.stringify(text)}; input.dispatchEvent(new Event("input", { bubbles: true })); input.blur();`);
+/** Zeile einer Antwort in der Auswertung (nach Spielername und Kategorie). */
+const answerRow = (name, index) => `[...document.querySelectorAll('.slf-answer[data-category="${index}"]')].find(li => li.querySelector(".slf-answer-name").textContent === ${JSON.stringify(name)})`;
+let slfLetter = "";
+
+await test("Setup: eigene Kategorie, auf drei Kategorien reduzieren, Start mit Countdown", async () => {
+    await startGame(anna, "stadtlandfluss");
+    await anna.waitFor(`document.querySelector('.slf[data-phase="setup"] .slf-start')`, "Setup mit Start-Button");
+    await anna.eval(`const i = document.querySelector(".slf-add-input"); i.value = "Getränk"; document.querySelector(".slf-add").requestSubmit();`);
+    await anna.waitFor(`document.querySelector('.slf-chip.is-on[data-category="Getränk"]')`, "eigene Kategorie gewählt");
+    for (const name of ["Land", "Tier", "Beruf", "Vorname"]) {
+        await anna.click(`.slf-chip.is-on[data-category="${name}"]`);
+        await anna.waitFor(`!document.querySelector('.slf-chip.is-on[data-category="${name}"]')`, `${name} abgewählt`);
+    }
+    await ben.waitFor(`document.querySelector(".slf-summary")?.textContent === "Kategorien: Stadt, Fluss, Getränk"`, "Ben sieht die Kategorien");
+    await anna.click(".slf-start");
+    await anna.waitFor(`document.querySelector('.slf[data-phase="countdown"]')`, "Countdown");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.slf[data-phase="writing"]')`, "Schreibphase", 8000);
+    slfLetter = await anna.eval(`return document.querySelector(".slf-letter").textContent;`);
+    assert.match(slfLetter, /^[A-Z]$/);
+    assert.equal(await ben.eval(`return document.querySelector(".slf-letter").textContent;`), slfLetter, "beide haben denselben Buchstaben");
+    assert.equal(await anna.eval(`return document.querySelectorAll(".slf-input").length;`), 3);
+});
+await test("Schreiben: Ben sieht nur Annas Fortschritt, Stopp erst bei vollen Feldern", async () => {
+    await typeAnswer(anna, 0, `${slfLetter}stadt`);
+    await typeAnswer(anna, 1, `${slfLetter}fluss`);
+    assert.equal(await anna.eval(`return document.querySelector(".slf-stop").disabled;`), true, "Stopp noch gesperrt");
+    await typeAnswer(anna, 2, `${slfLetter}trank`);
+    await typeAnswer(ben, 0, `${slfLetter}stadt`);
+    await ben.waitFor(`[...document.querySelectorAll(".slf-scores li")].find(li => li.textContent.includes("Anna"))?.querySelector(".slf-progress")?.textContent === "●●●"`, "Annas Fortschritt bei Ben");
+    assert.equal(await ben.eval(`return [...document.querySelectorAll(".slf-input")].some(i => i.value.includes("trank"));`), false, "Annas Antworten bleiben verdeckt");
+    await anna.waitFor(`!document.querySelector(".slf-stop").disabled`, "Stopp frei");
+    await anna.click(".slf-stop");
+    await ben.waitFor(`document.querySelector('.slf[data-phase="grace"]') && document.querySelector(".slf-status").textContent.includes("Anna hat Stopp")`, "Ben sieht den Stopp");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector('.slf[data-phase="review"] .slf-cat')`, "Auswertung", 8000);
+});
+await test("Auswertung: Doppelte 5 Punkte, Ben zweifelt an, alle fertig → nächste Runde", async () => {
+    assert.equal(await anna.eval(`return ${answerRow("Anna", 0)}.querySelector(".slf-points").textContent;`), "5", "Stadt doppelt");
+    assert.equal(await anna.eval(`return ${answerRow("Anna", 2)}.querySelector(".slf-points").textContent;`), "20", "einzige Antwort");
+    await ben.eval(`${answerRow("Anna", 2)}.querySelector(".slf-doubt").click();`);
+    await anna.waitFor(`${answerRow("Anna", 2)}.classList.contains("is-invalid")`, "Antwort abgelehnt");
+    assert.equal(await anna.eval(`return ${answerRow("Anna", 2)}.querySelector(".slf-points").textContent;`), "0");
+    await ben.screenshot("37-stadtlandfluss-auswertung.png");
+    await anna.click(".slf-ready");
+    await ben.click(".slf-ready");
+    for (const page of [anna, ben]) await page.waitFor(`document.querySelector(".slf-round")?.textContent.startsWith("Runde 2/")`, "Runde 2");
+    assert.ok(await anna.eval(`return [...document.querySelectorAll(".slf-scores li")].find(li => li.textContent.includes("Anna")).querySelector(".slf-score").textContent === "25";`), "Anna: 5 (doppelt) + 20 (einzige) + 0 (abgelehnt)");
+});
+await test("Stadt-Land-Fluss im Dark-Mode, Host beendet", async () => {
+    await setTheme(ben, "dark");
+    await ben.waitFor(`document.querySelector('.slf[data-phase="writing"]')`, "Schreibphase", 8000);
+    await sleep(300);
+    assert.ok(await brightness(ben, ".slf-board") < 60, "Punkte-Kasten dunkel");
+    await ben.screenshot("38-stadtlandfluss-dunkel.png");
+    await setTheme(ben, "light");
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".slf")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".slf")`, "Spiel weg bei Anna");
+});
+
+section("Skizzen-Raten");
+
+let srWord = "";
+await test("Start: Anna zeichnet zuerst und wählt aus drei Begriffen", async () => {
+    await startGame(anna, "skizzenraten");
+    await anna.waitFor(`document.querySelector('.sr[data-phase="setup"] .sr-start')`, "Setup mit Start-Button");
+    await ben.waitFor(`document.querySelector(".sr-summary")`, "Ben sieht die Einstellungen");
+    await anna.click(".sr-start");
+    await anna.waitFor(`document.querySelectorAll(".sr-choice").length === 3`, "drei Vorschläge");
+    await ben.waitFor(`document.querySelector(".sr-overlay h3")?.textContent.includes("Anna wählt")`, "Ben wartet auf die Wahl");
+    assert.equal(await ben.eval(`return document.querySelectorAll(".sr-choice").length;`), 0, "Ben sieht keine Vorschläge");
+    await anna.click('.sr-choice[data-index="0"]');
+    await anna.waitFor(`document.querySelector('.sr[data-phase="drawing"]') && document.querySelector(".sr-tools:not([hidden])")`, "Anna zeichnet mit Werkzeugen");
+    srWord = await anna.eval(`return document.querySelector(".sr-word").textContent;`);
+    assert.ok(srWord.length >= 2);
+    await ben.waitFor(`document.querySelector(".sr-word.is-hint")`, "Ben sieht nur den Hinweis");
+    assert.ok(!(await ben.eval(`return document.querySelector(".sr-word").textContent;`)).includes(srWord), "Begriff bleibt verdeckt");
+});
+await test("Zeichnen per Pointer: Ben sieht die Striche", async () => {
+    await anna.eval(`
+        const c = document.querySelector(".sr-canvas");
+        const r = c.getBoundingClientRect();
+        const ev = (type, fx, fy) => c.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, button: 0, clientX: r.left + r.width * fx, clientY: r.top + r.height * fy }));
+        ev("pointerdown", 0.2, 0.5);
+        for (let i = 1; i <= 20; i++) ev("pointermove", 0.2 + i * 0.03, 0.5 - Math.sin(i / 3) * 0.2);
+        ev("pointerup", 0.8, 0.5);
+        ev("pointerdown", 0.5, 0.2); ev("pointermove", 0.5, 0.8); ev("pointerup", 0.5, 0.8);`);
+    await ben.waitFor(`Number(document.querySelector(".sr-canvas").dataset.strokes) === 2`, "zwei Striche bei Ben");
+    await anna.click(".sr-undo");
+    await ben.waitFor(`Number(document.querySelector(".sr-canvas").dataset.strokes) === 1`, "Rückgängig kommt an");
+});
+await test("Raten: falscher Tipp für alle sichtbar, richtiger Tipp → Auflösung, Ben zeichnet", async () => {
+    await ben.eval(`const i = document.querySelector(".sr-guess-input"); i.value = "Quatschwort"; document.querySelector(".sr-guess-form").requestSubmit();`);
+    await anna.waitFor(`document.querySelector(".sr-guess-list").textContent.includes("Quatschwort")`, "Anna sieht den falschen Tipp");
+    await ben.screenshot("39-skizzenraten.png");
+    await ben.eval(`const i = document.querySelector(".sr-guess-input"); i.value = ${JSON.stringify(srWord.toLowerCase())}; document.querySelector(".sr-guess-form").requestSubmit();`);
+    await anna.waitFor(`document.querySelector(".sr-overlay h3")?.textContent === ${JSON.stringify(`Der Begriff war: ${srWord}`)}`, "Auflösung bei Anna");
+    assert.ok(!(await anna.eval(`return document.querySelector(".sr-guess-list").textContent;`)).toLowerCase().includes(srWord.toLowerCase()), "richtiger Tipp bleibt geheim");
+    assert.ok(await ben.eval(`return [...document.querySelectorAll(".sr-score-list li")].find(li => li.dataset.player && li.textContent.includes("Ben")).querySelector(".sr-mark.is-hit") !== null;`), "Ben ist als erraten markiert");
+    await ben.waitFor(`document.querySelectorAll(".sr-choice").length === 3`, "Ben ist als Nächster dran", 10000);
+});
+await test("Skizzen-Raten im Dark-Mode, Host beendet", async () => {
+    await setTheme(ben, "dark");
+    await sleep(300);
+    assert.ok(await brightness(ben, ".sr-scores") < 60, "Punkte-Kasten dunkel");
+    assert.ok(await brightness(ben, ".sr-canvas") > 200, "Zeichenfläche bleibt weiß");
+    await ben.screenshot("40-skizzenraten-dunkel.png");
+    await setTheme(ben, "light");
+    await anna.click("#end-game-button");
+    await ben.waitFor(`!document.querySelector(".sr")`, "Spiel weg bei Ben");
+    await anna.waitFor(`!document.querySelector(".sr")`, "Spiel weg bei Anna");
 });
 
 section("Host-Wechsel und private Lobbys");

@@ -77,8 +77,6 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 
 | # | Arbeitstitel | Kurzidee | Lernzeit | Spieler | Aufwand | Hinweis |
 |---|---|---|---|---|---|---|
-| 8 | **Stadt-Land-Fluss** | Buchstabe, Kategorien, Stopp-Knopf. Danach stimmen alle über zweifelhafte Antworten ab. | 1 min | 2–12 | mittel | ideal für Feierabendrunden, keine Inhalte nötig |
-| 9 | **Skizzen-Raten** | Einer zeichnet einen Begriff, die anderen raten im Chat | 1 min | 3–12 | mittel | braucht eine Begriffsliste; Zeichnen per Canvas |
 | 10 | **Schätzduell** | Schätzfrage („Wie hoch ist …?“), wer am nächsten liegt, bekommt Punkte | 30 s | 2–12 | klein | braucht einen Fragenkatalog (JSON-Datei) |
 | 11 | **Vier in einer Reihe** | Steine einwerfen, vier in einer Reihe gewinnt | 30 s | 2 | klein | Füller für kurze Wartezeiten |
 
@@ -94,7 +92,8 @@ Der Host stellt eine Abfolge aus mehreren Spielen zusammen. Die Spiele laufen na
 5. ~~**Koop-Prügelspiel „Feierabend-Fäuste“**~~ – umgesetzt in 0.12.0.
 6. ~~**Koop-Tower-Defense „Turmwacht“**~~ – umgesetzt in 0.13.0.
 7. ~~**Fünf-Würfel-Poker**~~ – umgesetzt in 0.14.0.
-8. Partyspiele (Stadt-Land-Fluss, Skizzen-Raten) je nach Rundengröße.
+8. ~~**Partyspiele Stadt-Land-Fluss und Skizzen-Raten**~~ – umgesetzt in 0.15.0.
+9. Kleine Füller: **Schätzduell**, **Vier in einer Reihe**, **Schiffe versenken**.
 
 **Gemeinsame Vorarbeit für Echtzeitspiele:** ~~ein Baustein für die Steuerung~~ – umgesetzt in 0.8.0 als
 `public/js/game-kit/controls.js` (Pfeiltasten/WASD, Touch-Steuerkreuz, Wischen). Seit 0.9.0 auch mit „Taste halten“ (`onRelease`) und Aktionsknopf (`actionButton`), genutzt vom Bomben-Labyrinth und Artillerie-Duell. Seit 0.12.0 auch mit mehreren Aktionstasten (`actionButtons`), genutzt von Feierabend-Fäuste.

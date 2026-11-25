@@ -8,6 +8,29 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/):
 
 ---
 
+## [0.15.0] – 2026-11-25
+
+### Hinzugefügt
+- **Neues Spiel: Stadt-Land-Fluss** – Partyspiel für 2–8 Spieler.
+  - Der Host wählt 3–10 Kategorien aus einer Vorauswahl oder ergänzt eigene, dazu 3/5/8 Runden und 60–180 s pro Runde.
+  - Buchstabe ohne C, Q, X, Y und ohne Wiederholung; Antworten der anderen bleiben beim Schreiben verdeckt, sichtbar ist nur ihr Fortschritt.
+  - Wer alles ausgefüllt hat, ruft Stopp – danach bleiben allen noch 3 Sekunden.
+  - Auswertung mit allen Antworten offen: leere oder falsch beginnende Antworten zählen automatisch nicht, fremde Antworten lassen sich per 👎 anzweifeln, die Mehrheit der anderen entscheidet.
+  - Punkte: 20 als einzige gültige Antwort, 10 einmalig, 5 doppelt. Antworten überstehen einen Reload; Neuzugänge spielen ab der nächsten Runde mit.
+- **Neues Spiel: Skizzen-Raten** – Partyspiel für 2–8 Spieler.
+  - Reihum zeichnet einer einen Begriff (Auswahl aus 3 Vorschlägen), die anderen raten über ein eigenes Ratefeld.
+  - Eigene Begriffsliste mit 410 deutschen Begriffen in drei Stufen; der Host kann eigene Begriffe ergänzen oder nur eigene verwenden.
+  - Zeichnen mit Maus, Stift oder Touch: 9 Farben, Radierer, 3 Stiftgrößen, Rückgängig, Leeren.
+  - Falsche Tipps sehen alle, richtige bleiben geheim; knappe Tippfehler bekommen ein privates „Fast!“. Mit der Zeit werden einzelne Buchstaben aufgedeckt.
+  - Punkte nach Tempo für die Rater, nach Trefferquote für den Zeichner.
+- README: beide Spiele in der Spieleliste.
+- Tests `tests/stadtlandfluss.test.mjs` (`npm run test:stadtlandfluss`) und `tests/skizzenraten.test.mjs` (`npm run test:skizzenraten`). Sie laufen auch beim Merge nach main mit.
+
+### Geändert
+- Roadmap: Stadt-Land-Fluss und Skizzen-Raten umgesetzt und aus den Spielideen entfernt.
+
+---
+
 ## [0.14.0] – 2026-11-23
 
 ### Hinzugefügt
